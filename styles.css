@@ -82,3 +82,33 @@ font-size:14px;
 }
 
 }
+#conn-results,
+#conn-selected{
+margin-top:10px;
+}
+
+.result-item{
+padding:10px;
+margin-top:6px;
+background:#ffffff;
+border:1px solid #ccc;
+border-radius:4px;
+cursor:pointer;
+}
+
+.member-card{
+padding:10px;
+margin-top:10px;
+background:#ffffff;
+border:1px solid #ccc;
+border-radius:4px;
+}
+
+.member-card h4{
+margin:0 0 6px 0;
+}
+
+.member-card select,
+.member-card input{
+margin-top:6px;
+}
