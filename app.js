@@ -1,53 +1,46 @@
-
-function pasteFirs(){
-
-navigator.clipboard.readText()
-.then(text => {
-
-document.getElementById("firs-code").value = text;
-
-})
-.catch(err => {
-
-alert("Clipboard paste failed");
-
-});
-
+function pasteFirs() {
+  navigator.clipboard.readText()
+    .then(text => {
+      const firsField = document.getElementById("firs-code");
+      if (firsField) {
+        firsField.value = text;
+      }
+    })
+    .catch(() => {
+      alert("Clipboard paste failed");
+    });
 }
 
-function showTab(tab){
+function showTab(tab) {
+  const tabs = ["incident-tab", "connewarre-tab", "mtd-tab", "send-tab"];
 
-document.getElementById("incident-tab").style.display="none";
-document.getElementById("connewarre-tab").style.display="none";
-document.getElementById("mtd-tab").style.display="none";
-document.getElementById("send-tab").style.display="none";
+  tabs.forEach(id => {
+    const section = document.getElementById(id);
+    if (section) {
+      section.style.display = "none";
+    }
+  });
 
-document.getElementById(tab).style.display="block";
-
+  const activeTab = document.getElementById(tab);
+  if (activeTab) {
+    activeTab.style.display = "block";
+  }
 }
 
 /* Register service worker for offline support */
-
-if("serviceWorker" in navigator){
-
-window.addEventListener("load", () => {
-
-navigator.serviceWorker.register("service-worker.js")
-.then(() => {
-
-console.log("Service worker registered");
-
-})
-.catch(err => {
-
-console.log("Service worker failed:", err);
-
-});
-
-});
-
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js")
+      .then(() => {
+        console.log("Service worker registered");
+      })
+      .catch(err => {
+        console.log("Service worker failed:", err);
+      });
+  });
 }
 
+/* Data stores */
 let membersData = {
   connewarre: [],
   grovedale: [],
@@ -55,34 +48,92 @@ let membersData = {
 };
 
 let selectedConnewarreMembers = [];
+let selectedMTDMembers = [];
 
-async function loadMembers(){
-  try{
+/* Initial load */
+async function loadMembers() {
+  try {
     const response = await fetch("members.json");
     membersData = await response.json();
-  } catch(err){
+  } catch (err) {
     console.log("Failed to load members:", err);
   }
 }
 
-document.addEventListener("DOMContentLoaded", function(){
-
+document.addEventListener("DOMContentLoaded", function () {
   const now = new Date();
   const date = now.toISOString().split("T")[0];
 
-  document.getElementById("pager-date").value = date;
-  document.getElementById("pager-time").value = now.toTimeString().slice(0,5);
+  const pagerDate = document.getElementById("pager-date");
+  const pagerTime = document.getElementById("pager-time");
+
+  if (pagerDate) {
+    pagerDate.value = date;
+  }
+
+  if (pagerTime) {
+    pagerTime.value = now.toTimeString().slice(0, 5);
+  }
 
   loadMembers();
-
 });
 
-function searchConnewarreMembers(){
-  const search = document.getElementById("conn-search").value.toLowerCase().trim();
+/* Shared OIC helpers */
+function updateOICHeader(name, phone) {
+  const oicName = document.getElementById("oic-name");
+  const oicPhone = document.getElementById("oic-phone");
+
+  if (!oicName || !oicPhone) {
+    return;
+  }
+
+  if (name) {
+    oicName.textContent = name;
+    oicName.classList.remove("missing");
+    oicPhone.textContent = phone || "______";
+  } else {
+    oicName.textContent = "Not assigned";
+    oicName.classList.add("missing");
+    oicPhone.textContent = "______";
+  }
+}
+
+function clearAllOICFlags() {
+  selectedConnewarreMembers.forEach(member => {
+    member.isOIC = false;
+  });
+
+  selectedMTDMembers.forEach(member => {
+    member.isOIC = false;
+  });
+}
+
+function refreshOICHeaderFromSelections() {
+  const connOIC = selectedConnewarreMembers.find(member => member.isOIC);
+  const mtdOIC = selectedMTDMembers.find(member => member.isOIC);
+
+  if (connOIC) {
+    updateOICHeader(connOIC.name, connOIC.phone);
+  } else if (mtdOIC) {
+    updateOICHeader(mtdOIC.name, mtdOIC.phone);
+  } else {
+    updateOICHeader("", "");
+  }
+}
+
+/* Connewarre */
+function searchConnewarreMembers() {
+  const searchField = document.getElementById("conn-search");
   const resultsDiv = document.getElementById("conn-results");
+
+  if (!searchField || !resultsDiv) {
+    return;
+  }
+
+  const search = searchField.value.toLowerCase().trim();
   resultsDiv.innerHTML = "";
 
-  if(!search){
+  if (!search) {
     return;
   }
 
@@ -99,9 +150,9 @@ function searchConnewarreMembers(){
   });
 }
 
-function addConnewarreMember(member){
+function addConnewarreMember(member) {
   const alreadyAdded = selectedConnewarreMembers.some(m => m.id === member.id);
-  if(alreadyAdded){
+  if (alreadyAdded) {
     return;
   }
 
@@ -113,13 +164,26 @@ function addConnewarreMember(member){
     isOIC: false
   });
 
-  document.getElementById("conn-search").value = "";
-  document.getElementById("conn-results").innerHTML = "";
+  const searchField = document.getElementById("conn-search");
+  const resultsDiv = document.getElementById("conn-results");
+
+  if (searchField) {
+    searchField.value = "";
+  }
+
+  if (resultsDiv) {
+    resultsDiv.innerHTML = "";
+  }
+
   renderConnewarreMembers();
 }
 
-function renderConnewarreMembers(){
+function renderConnewarreMembers() {
   const container = document.getElementById("conn-selected");
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = "";
 
   selectedConnewarreMembers.forEach((member, index) => {
@@ -167,105 +231,86 @@ function renderConnewarreMembers(){
   });
 }
 
-function updateConnMember(index, field, value){
+function updateConnMember(index, field, value) {
   selectedConnewarreMembers[index][field] = value;
   renderConnewarreMembers();
 }
 
-function setConnewarreOIC(index, checked){
+function setConnewarreOIC(index, checked) {
+  const existingConn = selectedConnewarreMembers.findIndex(m => m.isOIC);
+  const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
 
-   const existingConn = selectedConnewarreMembers.findIndex(m => m.isOIC);
-   const existingMTD = selectedMTDMembers ? selectedMTDMembers.findIndex(m => m.isOIC) : -1;
-
-   if(checked){
-
-      if((existingConn !== -1 && existingConn !== index) || existingMTD !== -1){
-
-         const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
-         if(!replace){
-            renderConnewarreMembers();
-            return;
-         }
-
-         if(typeof clearAllOICFlags === "function"){
-            clearAllOICFlags();
-         }
+  if (checked) {
+    if ((existingConn !== -1 && existingConn !== index) || existingMTD !== -1) {
+      const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
+      if (!replace) {
+        renderConnewarreMembers();
+        return;
       }
 
-      selectedConnewarreMembers[index].isOIC = true;
+      clearAllOICFlags();
+    }
 
-      document.getElementById("oic-name").textContent =
-         selectedConnewarreMembers[index].name;
+    selectedConnewarreMembers[index].isOIC = true;
+  } else {
+    selectedConnewarreMembers[index].isOIC = false;
+  }
 
-      document.getElementById("oic-name").classList.remove("missing");
-
-      document.getElementById("oic-phone").textContent =
-         selectedConnewarreMembers[index].phone || "______";
-
-   } else {
-
-      selectedConnewarreMembers[index].isOIC = false;
-
-      const stillHasConnOIC = selectedConnewarreMembers.find(m => m.isOIC);
-
-      if(stillHasConnOIC){
-
-         document.getElementById("oic-name").textContent = stillHasConnOIC.name;
-         document.getElementById("oic-name").classList.remove("missing");
-         document.getElementById("oic-phone").textContent =
-            stillHasConnOIC.phone || "______";
-
-      } else {
-
-         document.getElementById("oic-name").textContent = "Not assigned";
-         document.getElementById("oic-name").classList.add("missing");
-         document.getElementById("oic-phone").textContent = "______";
-
-      }
-   }
-
-   renderConnewarreMembers();
-}
- let selectedMTDMembers = [];
-
-function clearAllOICFlags(){
-  selectedConnewarreMembers.forEach(member => member.isOIC = false);
-  selectedMTDMembers.forEach(member => member.isOIC = false);
+  renderConnewarreMembers();
+  renderMTDMembers();
+  refreshOICHeaderFromSelections();
 }
 
-function clearMTDSearch(){
-  const brigade = document.getElementById("mtd-brigade").value;
+/* MTD */
+function clearMTDSearch() {
+  const brigadeField = document.getElementById("mtd-brigade");
   const otherWrap = document.getElementById("mtd-other-brigade-wrap");
+  const otherBrigadeField = document.getElementById("mtd-other-brigade");
+  const searchField = document.getElementById("mtd-search");
+  const resultsDiv = document.getElementById("mtd-results");
 
-  document.getElementById("mtd-search").value = "";
-  document.getElementById("mtd-results").innerHTML = "";
+  if (!brigadeField || !otherWrap || !otherBrigadeField || !searchField || !resultsDiv) {
+    return;
+  }
 
-  if(brigade === "Other"){
+  const brigade = brigadeField.value;
+
+  searchField.value = "";
+  resultsDiv.innerHTML = "";
+
+  if (brigade === "Other") {
     otherWrap.style.display = "block";
   } else {
     otherWrap.style.display = "none";
-    document.getElementById("mtd-other-brigade").value = "";
+    otherBrigadeField.value = "";
   }
 }
 
-function searchMTDMembers(){
-  const brigade = document.getElementById("mtd-brigade").value;
-  const search = document.getElementById("mtd-search").value.toLowerCase().trim();
+function searchMTDMembers() {
+  const brigadeField = document.getElementById("mtd-brigade");
+  const searchField = document.getElementById("mtd-search");
   const resultsDiv = document.getElementById("mtd-results");
+
+  if (!brigadeField || !searchField || !resultsDiv) {
+    return;
+  }
+
+  const brigade = brigadeField.value;
+  const search = searchField.value.toLowerCase().trim();
 
   resultsDiv.innerHTML = "";
 
-  if(!brigade || !search){
+  if (!brigade || !search) {
     return;
   }
 
   let sourceList = [];
 
-  if(brigade === "Connewarre"){
+  if (brigade === "Connewarre") {
     sourceList = membersData.connewarre || [];
-  } else if(brigade === "Grovedale"){
+  } else if (brigade === "Grovedale") {
     sourceList = membersData.grovedale || [];
-  } else if(brigade === "Freshwater Creek"){
+  } else if (brigade === "Freshwater Creek") {
     sourceList = membersData.freshwater || [];
   } else {
     return;
@@ -284,9 +329,12 @@ function searchMTDMembers(){
   });
 }
 
-function addMTDMember(member, selectedBrigade){
-  const alreadyAdded = selectedMTDMembers.some(m => m.id === member.id && m.brigade === selectedBrigade);
-  if(alreadyAdded){
+function addMTDMember(member, selectedBrigade) {
+  const alreadyAdded = selectedMTDMembers.some(
+    m => m.id === member.id && m.brigade === selectedBrigade
+  );
+
+  if (alreadyAdded) {
     return;
   }
 
@@ -300,16 +348,32 @@ function addMTDMember(member, selectedBrigade){
     isOIC: false
   });
 
-  document.getElementById("mtd-search").value = "";
-  document.getElementById("mtd-results").innerHTML = "";
+  const searchField = document.getElementById("mtd-search");
+  const resultsDiv = document.getElementById("mtd-results");
+
+  if (searchField) {
+    searchField.value = "";
+  }
+
+  if (resultsDiv) {
+    resultsDiv.innerHTML = "";
+  }
+
   renderMTDMembers();
 }
 
-function addOtherMTDMember(){
-  const brigade = document.getElementById("mtd-brigade").value;
-  const otherBrigade = document.getElementById("mtd-other-brigade").value.trim();
+function addOtherMTDMember() {
+  const brigadeField = document.getElementById("mtd-brigade");
+  const otherBrigadeField = document.getElementById("mtd-other-brigade");
 
-  if(brigade !== "Other" || !otherBrigade){
+  if (!brigadeField || !otherBrigadeField) {
+    return;
+  }
+
+  const brigade = brigadeField.value;
+  const otherBrigade = otherBrigadeField.value.trim();
+
+  if (brigade !== "Other" || !otherBrigade) {
     return;
   }
 
@@ -331,11 +395,17 @@ function addOtherMTDMember(){
   renderMTDMembers();
 }
 
-function renderMTDMembers(){
+function renderMTDMembers() {
   const container = document.getElementById("mtd-selected");
+  const brigadeField = document.getElementById("mtd-brigade");
+
+  if (!container || !brigadeField) {
+    return;
+  }
+
   container.innerHTML = "";
 
-  if(document.getElementById("mtd-brigade").value === "Other"){
+  if (brigadeField.value === "Other") {
     const addBtn = document.createElement("button");
     addBtn.textContent = "Add Other Brigade Member";
     addBtn.onclick = addOtherMTDMember;
@@ -398,19 +468,19 @@ function renderMTDMembers(){
   });
 }
 
-function updateMTDMember(index, field, value){
+function updateMTDMember(index, field, value) {
   selectedMTDMembers[index][field] = value;
   renderMTDMembers();
 }
 
-function updateMTDAttribution(index, value){
+function updateMTDAttribution(index, value) {
   selectedMTDMembers[index].attribution = value;
 
-  if(value === "Appliance" && !selectedMTDMembers[index].appliance){
+  if (value === "Appliance" && !selectedMTDMembers[index].appliance) {
     selectedMTDMembers[index].appliance = "MTD P/T";
   }
 
-  if(value !== "Appliance"){
+  if (value !== "Appliance") {
     selectedMTDMembers[index].appliance = "";
     selectedMTDMembers[index].otherAppliance = "";
   }
@@ -418,55 +488,37 @@ function updateMTDAttribution(index, value){
   renderMTDMembers();
 }
 
-function updateMTDAppliance(index, value){
+function updateMTDAppliance(index, value) {
   selectedMTDMembers[index].appliance = value;
 
-  if(value !== "Other"){
+  if (value !== "Other") {
     selectedMTDMembers[index].otherAppliance = "";
   }
 
   renderMTDMembers();
 }
 
-function setMTDOIC(index, checked){
-  if(checked){
-    const existingConn = selectedConnewarreMembers.findIndex(m => m.isOIC);
-    const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
+function setMTDOIC(index, checked) {
+  const existingConn = selectedConnewarreMembers.findIndex(m => m.isOIC);
+  const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
 
-    if(existingConn !== -1 || (existingMTD !== -1 && existingMTD !== index)){
+  if (checked) {
+    if (existingConn !== -1 || (existingMTD !== -1 && existingMTD !== index)) {
       const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
-      if(!replace){
+      if (!replace) {
         renderMTDMembers();
         return;
       }
+
       clearAllOICFlags();
     }
 
     selectedMTDMembers[index].isOIC = true;
-    document.getElementById("oic-name").textContent = selectedMTDMembers[index].name || "Not assigned";
-    document.getElementById("oic-name").classList.remove("missing");
-    document.getElementById("oic-phone").textContent = selectedMTDMembers[index].phone || "______";
   } else {
     selectedMTDMembers[index].isOIC = false;
-
-    const stillHasConnOIC = selectedConnewarreMembers.find(m => m.isOIC);
-    const stillHasMTDOIC = selectedMTDMembers.find(m => m.isOIC);
-
-    if(stillHasConnOIC){
-      document.getElementById("oic-name").textContent = stillHasConnOIC.name;
-      document.getElementById("oic-name").classList.remove("missing");
-      document.getElementById("oic-phone").textContent = stillHasConnOIC.phone || "______";
-    } else if(stillHasMTDOIC){
-      document.getElementById("oic-name").textContent = stillHasMTDOIC.name || "Not assigned";
-      document.getElementById("oic-name").classList.remove("missing");
-      document.getElementById("oic-phone").textContent = stillHasMTDOIC.phone || "______";
-    } else {
-      document.getElementById("oic-name").textContent = "Not assigned";
-      document.getElementById("oic-name").classList.add("missing");
-      document.getElementById("oic-phone").textContent = "______";
-    }
   }
 
   renderConnewarreMembers();
   renderMTDMembers();
+  refreshOICHeaderFromSelections();
 }
