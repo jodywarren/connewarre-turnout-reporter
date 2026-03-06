@@ -71,15 +71,35 @@ Phone: <span id="oic-phone">______</span>
 
 </section>
 
-
 <section id="mtd-tab" style="display:none">
 
 <h2>MTD Response</h2>
 
-<p>No members added yet.</p>
+<label>Brigade</label>
+<select id="mtd-brigade" onchange="clearMTDSearch()">
+  <option value="">Select brigade</option>
+  <option value="Connewarre">Connewarre</option>
+  <option value="Grovedale">Grovedale</option>
+  <option value="Freshwater Creek">Freshwater Creek</option>
+  <option value="Other">Other</option>
+</select>
+
+<div id="mtd-other-brigade-wrap" style="display:none;">
+  <label>Other Brigade</label>
+  <input type="text" id="mtd-other-brigade" placeholder="Enter brigade name">
+</div>
+
+<label>Search member</label>
+<input type="text" id="mtd-search" placeholder="Type member name..." oninput="searchMTDMembers()">
+
+<div id="mtd-results"></div>
+
+<h3>Selected Members</h3>
+<div id="mtd-selected"></div>
+
+<button onclick="showTab('send-tab')">Next → Send Report</button>
 
 </section>
-
 
 <section id="send-tab" style="display:none">
 
