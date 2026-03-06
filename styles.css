@@ -1,128 +1,122 @@
 body{
-font-family: Arial, sans-serif;
-margin:0;
-padding:0;
-background:#f2f2f2;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f2f2f2;
 }
 
 header{
-background:#ffffff;
-padding:10px;
-border-bottom:1px solid #ccc;
+  background: #ffffff;
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
 }
 
 .oic-header{
-font-size:16px;
+  font-size: 16px;
 }
 
 .missing{
-color:red;
-font-weight:bold;
+  color: red;
+  font-weight: bold;
 }
 
 .tabs{
-display:flex;
-flex-wrap:wrap;
-gap:5px;
-padding:10px;
-background:#ffffff;
-border-bottom:1px solid #ccc;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #ccc;
 }
 
 .tabs button{
-flex:1;
-padding:12px;
-font-size:14px;
-border:1px solid #ccc;
-background:#f7f7f7;
-border-radius:4px;
+  flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  border-radius: 4px;
 }
 
 main{
-padding:10px;
+  padding: 10px;
 }
 
 h2{
-margin-top:10px;
+  margin-top: 10px;
+}
+
+h3{
+  margin-top: 16px;
 }
 
 label{
-display:block;
-margin-top:10px;
-font-weight:bold;
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
 }
 
-input{
-width:100%;
-padding:10px;
-margin-top:4px;
-border:1px solid #ccc;
-border-radius:4px;
-font-size:16px;
+input,
+select{
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+  background: #fff;
+  box-sizing: border-box;
 }
 
 button{
-padding:10px;
-margin-top:10px;
-border-radius:4px;
-border:1px solid #aaa;
-background:#eaeaea;
-font-size:14px;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 4px;
+  border: 1px solid #aaa;
+  background: #eaeaea;
+  font-size: 14px;
 }
 
-@media (max-width:600px){
-
-.tabs button{
-font-size:13px;
-padding:10px;
-}
-
-header{
-font-size:14px;
-}
-
-}
 #conn-results,
-#conn-selected{
-margin-top:10px;
+#conn-selected,
+#mtd-results,
+#mtd-selected{
+  margin-top: 10px;
 }
 
 .result-item{
-padding:10px;
-margin-top:6px;
-background:#ffffff;
-border:1px solid #ccc;
-border-radius:4px;
-cursor:pointer;
+  padding: 10px;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .member-card{
-padding:10px;
-margin-top:10px;
-background:#ffffff;
-border:1px solid #ccc;
-border-radius:4px;
+  padding: 10px;
+  margin-top: 10px;
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
 .member-card h4{
-margin:0 0 6px 0;
+  margin: 0 0 6px 0;
 }
 
 .member-card select,
 .member-card input{
-margin-top:6px;
-}
-select{
-width:100%;
-padding:10px;
-margin-top:4px;
-border:1px solid #ccc;
-border-radius:4px;
-font-size:16px;
-background:#fff;
+  margin-top: 6px;
 }
 
-#mtd-results,
-#mtd-selected{
-margin-top:10px;
+@media (max-width:600px){
+  .tabs button{
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  header{
+    font-size: 14px;
+  }
 }
