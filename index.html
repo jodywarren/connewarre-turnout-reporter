@@ -59,7 +59,15 @@ Phone: <span id="oic-phone">______</span>
 
 <h2>Connewarre Response</h2>
 
-<p>No members added yet.</p>
+<label>Search member</label>
+<input type="text" id="conn-search" placeholder="Type member name..." oninput="searchConnewarreMembers()">
+
+<div id="conn-results"></div>
+
+<h3>Selected Members</h3>
+<div id="conn-selected"></div>
+
+<button onclick="showTab('mtd-tab')">Next → MTD Response</button>
 
 </section>
 
