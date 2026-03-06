@@ -49,14 +49,13 @@ console.log("Service worker failed:", err);
 }
 document.addEventListener("DOMContentLoaded", function(){
 
-const now = new Date();
+  const now = new Date();
+  const date = now.toISOString().split("T")[0];
 
-const date = now.toISOString().split("T")[0];
+  document.getElementById("pager-date").value = date;
+  document.getElementById("pager-time").value = now.toTimeString().slice(0,5);
 
-document.getElementById("pager-date").value = date;
-
-document.getElementById("pager-time").value =
-now.toTimeString().slice(0,5);
+  loadMembers();
 
 });
 let membersData = {
