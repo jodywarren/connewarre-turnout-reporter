@@ -1,4 +1,4 @@
-const CACHE_NAME = "turnout-cache-v2";
+const CACHE_NAME = "turnout-cache-v3";
 
 self.addEventListener("install", event => {
   event.waitUntil(
