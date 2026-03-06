@@ -112,3 +112,17 @@ margin:0 0 6px 0;
 .member-card input{
 margin-top:6px;
 }
+select{
+width:100%;
+padding:10px;
+margin-top:4px;
+border:1px solid #ccc;
+border-radius:4px;
+font-size:16px;
+background:#fff;
+}
+
+#mtd-results,
+#mtd-selected{
+margin-top:10px;
+}
