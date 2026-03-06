@@ -184,31 +184,57 @@ function updateConnMember(index, field, value){
 }
 
 function setConnewarreOIC(index, checked){
-  if(checked){
-    const existingIndex = selectedConnewarreMembers.findIndex(m => m.isOIC);
-    if(existingIndex !== -1 && existingIndex !== index){
-      const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
-      if(!replace){
-        renderConnewarreMembers();
-        return;
+
+   const existingConn = selectedConnewarreMembers.findIndex(m => m.isOIC);
+   const existingMTD = selectedMTDMembers ? selectedMTDMembers.findIndex(m => m.isOIC) : -1;
+
+   if(checked){
+
+      if((existingConn !== -1 && existingConn !== index) || existingMTD !== -1){
+
+         const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
+         if(!replace){
+            renderConnewarreMembers();
+            return;
+         }
+
+         if(typeof clearAllOICFlags === "function"){
+            clearAllOICFlags();
+         }
       }
-      selectedConnewarreMembers[existingIndex].isOIC = false;
-    }
 
-    selectedConnewarreMembers[index].isOIC = true;
-    document.getElementById("oic-name").textContent = selectedConnewarreMembers[index].name;
-    document.getElementById("oic-name").classList.remove("missing");
-    document.getElementById("oic-phone").textContent = selectedConnewarreMembers[index].phone || "______";
-  } else {
-    selectedConnewarreMembers[index].isOIC = false;
+      selectedConnewarreMembers[index].isOIC = true;
 
-    const stillHasOIC = selectedConnewarreMembers.find(m => m.isOIC);
-    if(!stillHasOIC){
-      document.getElementById("oic-name").textContent = "Not assigned";
-      document.getElementById("oic-name").classList.add("missing");
-      document.getElementById("oic-phone").textContent = "______";
-    }
-  }
+      document.getElementById("oic-name").textContent =
+         selectedConnewarreMembers[index].name;
 
-  renderConnewarreMembers();
+      document.getElementById("oic-name").classList.remove("missing");
+
+      document.getElementById("oic-phone").textContent =
+         selectedConnewarreMembers[index].phone || "______";
+
+   } else {
+
+      selectedConnewarreMembers[index].isOIC = false;
+
+      const stillHasConnOIC = selectedConnewarreMembers.find(m => m.isOIC);
+
+      if(stillHasConnOIC){
+
+         document.getElementById("oic-name").textContent = stillHasConnOIC.name;
+         document.getElementById("oic-name").classList.remove("missing");
+         document.getElementById("oic-phone").textContent =
+            stillHasConnOIC.phone || "______";
+
+      } else {
+
+         document.getElementById("oic-name").textContent = "Not assigned";
+         document.getElementById("oic-name").classList.add("missing");
+         document.getElementById("oic-phone").textContent = "______";
+
+      }
+   }
+
+   renderConnewarreMembers();
 }
+ 
