@@ -47,3 +47,15 @@ console.log("Service worker failed:", err);
 });
 
 }
+document.addEventListener("DOMContentLoaded", function(){
+
+const now = new Date();
+
+const date = now.toISOString().split("T")[0];
+
+document.querySelector("input[type='date']").value = date;
+
+document.querySelector("input[type='time']").value =
+now.toTimeString().slice(0,5);
+
+});
