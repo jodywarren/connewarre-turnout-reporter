@@ -73,8 +73,13 @@ Phone: <span id="oic-phone">______</span>
 
 <section id="mtd-tab" style="display:none">
 
+<section id="mtd-tab" style="display:none">
+
 <h2>MTD Response</h2>
 
+<label>Brigade</label>
+<select id="mtd-brigade" onchange="clearMTDSearch()">
+   
 <label>Brigade</label>
 <select id="mtd-brigade" onchange="clearMTDSearch()">
   <option value="">Select brigade</option>
@@ -88,7 +93,6 @@ Phone: <span id="oic-phone">______</span>
   <label>Other Brigade</label>
   <input type="text" id="mtd-other-brigade" placeholder="Enter brigade name">
 </div>
-
 <label>Search member</label>
 <input type="text" id="mtd-search" placeholder="Type member name..." oninput="searchMTDMembers()">
 
