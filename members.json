@@ -1,0 +1,12 @@
+{
+  "connewarre": [
+    { "id": "conn_001", "name": "Alex Brown", "phone": "0400000001", "brigade": "Connewarre" },
+    { "id": "conn_002", "name": "John Smith", "phone": "0400000002", "brigade": "Connewarre" }
+  ],
+  "grovedale": [
+    { "id": "grov_001", "name": "Mark Wilson", "phone": "0400000003", "brigade": "Grovedale" }
+  ],
+  "freshwater": [
+    { "id": "fresh_001", "name": "Sam Taylor", "phone": "0400000004", "brigade": "Freshwater Creek" }
+  ]
+}
