@@ -53,9 +53,9 @@ const now = new Date();
 
 const date = now.toISOString().split("T")[0];
 
-document.querySelector("input[type='date']").value = date;
+document.getElementById("pager-date").value = date;
 
-document.querySelector("input[type='time']").value =
+document.getElementById("pager-time").value =
 now.toTimeString().slice(0,5);
 
 });
