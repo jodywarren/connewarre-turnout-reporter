@@ -46,12 +46,12 @@ Phone: <span id="oic-phone">______</span>
 <input type="time" id="pager-time">
 
 <label>Event ID</label>
-<input type="text">
+<input type="text" id="event-id">
 
 <label>FIRS Code</label>
 <input type="text" id="firs-code">
 
-<button onclick="pasteFirs()">Paste</button>
+<button type="button" onclick="pasteFirs()">Paste</button>
 
 </section>
 
@@ -67,7 +67,7 @@ Phone: <span id="oic-phone">______</span>
 <h3>Selected Members</h3>
 <div id="conn-selected"></div>
 
-<button onclick="showTab('mtd-tab')">Next → MTD Response</button>
+<button type="button" onclick="showTab('mtd-tab')">Next → MTD Response</button>
 
 </section>
 
@@ -98,23 +98,21 @@ Phone: <span id="oic-phone">______</span>
 <div id="mtd-results"></div>
 
 <h3>Selected Members</h3>
-<div id="mtd-selected">
- 
-</div>
+<div id="mtd-selected"></div>
 
-<button onclick="showTab('send-tab')">Next → Send Report</button>
+<button type="button" onclick="showTab('send-tab')">Next → Send Report</button>
 
 </section>
 
 <section id="send-tab" style="display:none">
 
-  <h2>Send Report</h2>
+<h2>Send Report</h2>
 
-  <button type="button" onclick="generateReport()">Generate Report</button>
-  <button type="button" onclick="copyReport()">Copy Report</button>
+<button type="button" onclick="generateReport()">Generate Report</button>
+<button type="button" onclick="copyReport()">Copy Report</button>
 
-  <h3>Report Preview</h3>
-  <textarea id="report-preview" rows="20" readonly></textarea>
+<h3>Report Preview</h3>
+<textarea id="report-preview" rows="20" readonly></textarea>
 
 </section>
 
@@ -124,4 +122,3 @@ Phone: <span id="oic-phone">______</span>
 
 </body>
 </html>
-
