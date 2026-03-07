@@ -1,4 +1,4 @@
-const CACHE_NAME = "turnout-reporter-v1";
+const CACHE_NAME = "turnout-reporter-v2";
 
 const FILES_TO_CACHE = [
   "/cfa-turnout-reporter/",
