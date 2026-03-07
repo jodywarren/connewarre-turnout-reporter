@@ -79,10 +79,10 @@ document.addEventListener("DOMContentLoaded", function () {
   renderPastEvents();
   bindSASUpload();
   bindCallTypeOverride();
-  bindIncidentClassWatcher();
+  bindIncidentTypeWatcher();
   updateEventIdPlaceholder();
-  applyCallTypeUI();
-  applyIncidentClassUI();
+  updateAgencyFields();
+  applyIncidentTypeUI();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
@@ -108,13 +108,13 @@ function getStoredProfile() {
 function getStoredSettings() {
   const raw = localStorage.getItem("turnoutSettings");
   if (!raw) {
-    return { secretaryEmail: "" };
+    return { reportEmail: "" };
   }
 
   try {
     return JSON.parse(raw);
   } catch {
-    return { secretaryEmail: "" };
+    return { reportEmail: "" };
   }
 }
 
@@ -122,12 +122,13 @@ function saveProfile() {
   const profile = {
     name: document.getElementById("profile-name")?.value.trim() || "",
     number: document.getElementById("profile-number")?.value.trim() || "",
+    phone: document.getElementById("profile-phone")?.value.trim() || "",
     brigade: document.getElementById("profile-brigade")?.value || "",
     role: document.getElementById("profile-role")?.value || ""
   };
 
   const settings = {
-    secretaryEmail: document.getElementById("secretary-email")?.value.trim() || ""
+    reportEmail: document.getElementById("secretary-email")?.value.trim() || ""
   };
 
   localStorage.setItem("turnoutProfile", JSON.stringify(profile));
@@ -143,19 +144,21 @@ function loadProfile() {
 
   const nameField = document.getElementById("profile-name");
   const numberField = document.getElementById("profile-number");
+  const phoneField = document.getElementById("profile-phone");
   const brigadeField = document.getElementById("profile-brigade");
   const roleField = document.getElementById("profile-role");
-  const secretaryEmailField = document.getElementById("secretary-email");
+  const emailField = document.getElementById("secretary-email");
 
   if (profile) {
     if (nameField) nameField.value = profile.name || "";
     if (numberField) numberField.value = profile.number || "";
+    if (phoneField) phoneField.value = profile.phone || "";
     if (brigadeField) brigadeField.value = profile.brigade || "";
     if (roleField) roleField.value = profile.role || "";
   }
 
-  if (secretaryEmailField) {
-    secretaryEmailField.value = settings.secretaryEmail || "";
+  if (emailField) {
+    emailField.value = settings.reportEmail || "";
   }
 
   updateProfileDisplays(profile, settings);
@@ -165,44 +168,40 @@ function updateProfileDisplays(profile, settings) {
   const safeProfile = profile || {
     name: "",
     number: "",
+    phone: "",
     brigade: "",
     role: ""
   };
 
-  const safeSettings = settings || {
-    secretaryEmail: ""
-  };
+  const nameText = safeProfile.name || "Not saved";
+  const numberText = safeProfile.number || "Not saved";
+  const phoneText = safeProfile.phone || "Not saved";
+  const brigadeText = safeProfile.brigade || "Not saved";
+  const roleText = safeProfile.role || "Not saved";
 
   const profileName = document.getElementById("profile-name-display");
   const profileNumber = document.getElementById("profile-number-display");
+  const profilePhone = document.getElementById("profile-phone-display");
   const profileBrigade = document.getElementById("profile-brigade-display");
   const profileRole = document.getElementById("profile-role-display");
 
   const authorName = document.getElementById("author-name-display");
   const authorNumber = document.getElementById("author-number-display");
+  const authorPhone = document.getElementById("author-phone-display");
   const authorBrigade = document.getElementById("author-brigade-display");
   const authorRole = document.getElementById("author-role-display");
 
-  const secretaryLabel = document.getElementById("secretary-email-display");
-
-  const nameText = safeProfile.name || "Not saved";
-  const numberText = safeProfile.number || "Not saved";
-  const brigadeText = safeProfile.brigade || "Not saved";
-  const roleText = safeProfile.role || "Not saved";
-
   if (profileName) profileName.textContent = nameText;
   if (profileNumber) profileNumber.textContent = numberText;
+  if (profilePhone) profilePhone.textContent = phoneText;
   if (profileBrigade) profileBrigade.textContent = brigadeText;
   if (profileRole) profileRole.textContent = roleText;
 
   if (authorName) authorName.textContent = nameText;
   if (authorNumber) authorNumber.textContent = numberText;
+  if (authorPhone) authorPhone.textContent = phoneText;
   if (authorBrigade) authorBrigade.textContent = brigadeText;
   if (authorRole) authorRole.textContent = roleText;
-
-  if (secretaryLabel) {
-    secretaryLabel.textContent = safeSettings.secretaryEmail || "Not saved";
-  }
 }
 
 /* Shared OIC helpers */
@@ -253,10 +252,6 @@ function getEventId() {
   return document.getElementById("event-id")?.value.trim() || "";
 }
 
-function getFirsCode() {
-  return document.getElementById("firs-code")?.value.trim() || "";
-}
-
 function getPagerDate() {
   return document.getElementById("pager-date")?.value || "";
 }
@@ -273,12 +268,12 @@ function getIncidentType() {
   return document.getElementById("incident-type")?.value.trim() || "";
 }
 
-function getIncidentClass() {
-  return document.getElementById("incident-class")?.value.trim() || "";
-}
-
-function getOtherAgencies() {
-  return document.getElementById("other-agencies")?.value.trim() || "";
+function getCallType() {
+  const override = document.getElementById("call-type-override")?.value || "";
+  if (override) {
+    return override;
+  }
+  return document.getElementById("call-type")?.value || "";
 }
 
 function getStreetNameFromAddress(address) {
@@ -336,7 +331,6 @@ function updateEventIdPlaceholder() {
   eventField.placeholder = `F${shortYear}${month}_____`;
 }
 
-/* Call type and incident class helpers */
 function detectCallTypeFromCode(code) {
   const clean = (code || "").toUpperCase().trim();
 
@@ -351,26 +345,6 @@ function detectCallTypeFromCode(code) {
   return "";
 }
 
-function getFinalCallType() {
-  const override = document.getElementById("call-type-override")?.value || "";
-  if (override) {
-    return override;
-  }
-
-  return document.getElementById("call-type")?.value || "";
-}
-
-function applyCallTypeUI() {
-  const finalType = getFinalCallType();
-  const firsWrap = document.getElementById("firs-code-wrap");
-
-  if (!firsWrap) {
-    return;
-  }
-
-  firsWrap.style.display = finalType === "Support" ? "none" : "block";
-}
-
 function bindCallTypeOverride() {
   const override = document.getElementById("call-type-override");
   if (!override) {
@@ -378,30 +352,121 @@ function bindCallTypeOverride() {
   }
 
   override.addEventListener("change", () => {
-    applyCallTypeUI();
+    /* kept for future use */
   });
 }
 
-function applyIncidentClassUI() {
-  const incidentClass = (getIncidentClass() || "").toUpperCase();
+/* Agency UI */
+function updateAgencyFields() {
+  const agencyType = document.getElementById("agency-type")?.value || "";
+
+  const fieldsWrap = document.getElementById("agency-fields-wrap");
+  const stationWrap = document.getElementById("agency-station-wrap");
+  const badgeWrap = document.getElementById("agency-badge-wrap");
+  const headquartersWrap = document.getElementById("agency-headquarters-wrap");
+  const officeWrap = document.getElementById("agency-office-wrap");
+  const otherWrap = document.getElementById("agency-other-wrap");
+
+  if (!fieldsWrap || !stationWrap || !badgeWrap || !headquartersWrap || !officeWrap || !otherWrap) {
+    return;
+  }
+
+  fieldsWrap.style.display = agencyType ? "block" : "none";
+  stationWrap.style.display = "none";
+  badgeWrap.style.display = "none";
+  headquartersWrap.style.display = "none";
+  officeWrap.style.display = "none";
+  otherWrap.style.display = "none";
+
+  if (agencyType === "Police" || agencyType === "Ambulance") {
+    stationWrap.style.display = "block";
+    badgeWrap.style.display = "block";
+  } else if (agencyType === "SES") {
+    headquartersWrap.style.display = "block";
+  } else if (agencyType === "Council") {
+    officeWrap.style.display = "block";
+  } else if (agencyType === "Public rep" || agencyType === "Other") {
+    otherWrap.style.display = "block";
+  }
+}
+
+/* Incident type / MVA UI */
+function applyIncidentTypeUI() {
+  const incidentType = (getIncidentType() || "").toUpperCase();
   const mvaSection = document.getElementById("mva-section");
 
   if (!mvaSection) {
     return;
   }
 
-  mvaSection.style.display = incidentClass === "MVA" ? "block" : "none";
+  mvaSection.style.display = incidentType.includes("MVA") ? "block" : "none";
 }
 
-function bindIncidentClassWatcher() {
-  const incidentClassField = document.getElementById("incident-class");
-  if (!incidentClassField) {
+function bindIncidentTypeWatcher() {
+  const incidentTypeField = document.getElementById("incident-type");
+  if (!incidentTypeField) {
     return;
   }
 
-  incidentClassField.addEventListener("input", () => {
-    applyIncidentClassUI();
+  incidentTypeField.addEventListener("input", () => {
+    applyIncidentTypeUI();
   });
+}
+
+/* Vehicle cards */
+function addVehicleCard() {
+  const vehicleList = document.getElementById("vehicle-list");
+  if (!vehicleList) {
+    return;
+  }
+
+  const card = document.createElement("div");
+  card.className = "vehicle-card";
+
+  card.innerHTML = `
+    <label>Make</label>
+    <input type="text" class="vehicle-make" placeholder="Vehicle make">
+
+    <label>Model</label>
+    <input type="text" class="vehicle-model" placeholder="Vehicle model">
+
+    <label>Rego</label>
+    <input type="text" class="vehicle-rego" placeholder="Registration">
+
+    <label>State</label>
+    <select class="vehicle-state">
+      <option value="">Select state</option>
+      <option value="VIC">VIC</option>
+      <option value="NSW">NSW</option>
+      <option value="QLD">QLD</option>
+      <option value="SA">SA</option>
+      <option value="WA">WA</option>
+      <option value="TAS">TAS</option>
+      <option value="NT">NT</option>
+      <option value="ACT">ACT</option>
+    </select>
+
+    <label>Driver Name</label>
+    <input type="text" class="vehicle-driver-name" placeholder="Driver name">
+
+    <label>Driver Contact Number</label>
+    <input type="text" class="vehicle-driver-contact" placeholder="Driver contact number">
+  `;
+
+  vehicleList.appendChild(card);
+}
+
+function collectVehicleData() {
+  const cards = document.querySelectorAll("#vehicle-list .vehicle-card");
+
+  return Array.from(cards).map(card => ({
+    make: card.querySelector(".vehicle-make")?.value.trim() || "",
+    model: card.querySelector(".vehicle-model")?.value.trim() || "",
+    rego: card.querySelector(".vehicle-rego")?.value.trim() || "",
+    state: card.querySelector(".vehicle-state")?.value || "",
+    driverName: card.querySelector(".vehicle-driver-name")?.value.trim() || "",
+    driverContact: card.querySelector(".vehicle-driver-contact")?.value.trim() || ""
+  }));
 }
 
 /* SAS upload and OCR */
@@ -425,7 +490,7 @@ function bindSASUpload() {
     previewSASImage(file);
 
     try {
-      const croppedBlob = await cropAlertCardFromImage(file);
+      const croppedBlob = await cropLikelyAlertArea(file);
       setSASStatus("Running OCR...");
       const text = await runSASOCR(croppedBlob);
       applyOCRToIncidentFields(text);
@@ -475,51 +540,6 @@ function loadImageFile(file) {
   });
 }
 
-function isRedPixel(r, g, b) {
-  return r > 130 && g < 110 && b < 110 && (r - g) > 35 && (r - b) > 35;
-}
-
-function findLargestRedBounds(ctx, width, height) {
-  const imageData = ctx.getImageData(0, 0, width, height).data;
-
-  const topCrop = Math.floor(height * 0.22);
-  const bottomCrop = Math.floor(height * 0.80);
-
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
-  let found = false;
-
-  for (let y = topCrop; y < bottomCrop; y++) {
-    for (let x = 0; x < width; x++) {
-      const index = (y * width + x) * 4;
-      const r = imageData[index];
-      const g = imageData[index + 1];
-      const b = imageData[index + 2];
-
-      if (isRedPixel(r, g, b)) {
-        found = true;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-
-  if (!found) {
-    return null;
-  }
-
-  return {
-    x: Math.max(0, minX - Math.floor(width * 0.02)),
-    y: Math.max(0, minY - Math.floor(height * 0.01)),
-    width: Math.min(width, maxX - minX + Math.floor(width * 0.04)),
-    height: Math.min(height, maxY - minY + Math.floor(height * 0.02))
-  };
-}
-
 function preprocessCanvas(sourceCanvas) {
   const canvas = document.createElement("canvas");
   canvas.width = sourceCanvas.width;
@@ -544,11 +564,13 @@ function preprocessCanvas(sourceCanvas) {
     data[i + 2] = gray;
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  const ctx2 = canvas.getContext("2d");
+  ctx2.putImageData(imageData, 0, 0);
+
   return canvas;
 }
 
-async function cropAlertCardFromImage(file) {
+async function cropLikelyAlertArea(file) {
   const img = await loadImageFile(file);
 
   const baseCanvas = document.createElement("canvas");
@@ -561,24 +583,11 @@ async function cropAlertCardFromImage(file) {
   const baseCtx = baseCanvas.getContext("2d");
   baseCtx.drawImage(img, 0, 0, baseCanvas.width, baseCanvas.height);
 
-  const bounds = findLargestRedBounds(baseCtx, baseCanvas.width, baseCanvas.height);
-
-  let cropX;
-  let cropY;
-  let cropWidth;
-  let cropHeight;
-
-  if (bounds) {
-    cropX = bounds.x;
-    cropY = bounds.y;
-    cropWidth = bounds.width;
-    cropHeight = bounds.height;
-  } else {
-    cropX = Math.floor(baseCanvas.width * 0.06);
-    cropY = Math.floor(baseCanvas.height * 0.30);
-    cropWidth = Math.floor(baseCanvas.width * 0.88);
-    cropHeight = Math.floor(baseCanvas.height * 0.18);
-  }
+  /* Use only the likely message rectangle area, ignore lower location box */
+  const cropX = Math.floor(baseCanvas.width * 0.05);
+  const cropY = Math.floor(baseCanvas.height * 0.22);
+  const cropWidth = Math.floor(baseCanvas.width * 0.90);
+  const cropHeight = Math.floor(baseCanvas.height * 0.28);
 
   const cropCanvas = document.createElement("canvas");
   cropCanvas.width = cropWidth;
@@ -623,6 +632,59 @@ function normalizeOCRText(text) {
     .trim();
 }
 
+function parseEmergencyBlocks(text) {
+  const lines = normalizeOCRText(text)
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const blocks = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const hasEmergency = line.toUpperCase().includes("EMERGENCY");
+    const dateMatch = line.match(/\b(\d{2})-(\d{2})-(\d{4})\b/);
+    const timeMatch = line.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+
+    if (hasEmergency && dateMatch && timeMatch) {
+      const messageLines = [];
+
+      for (let j = i + 1; j < lines.length && messageLines.length < 6; j++) {
+        const nextLine = lines[j];
+        if (nextLine.toUpperCase().includes("EMERGENCY") && /\b\d{2}-\d{2}-\d{4}\b/.test(nextLine)) {
+          break;
+        }
+        messageLines.push(nextLine);
+      }
+
+      const dateIso = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+      const hh = timeMatch[1].padStart(2, "0");
+      const mm = timeMatch[2];
+      const ss = timeMatch[3] || "00";
+
+      blocks.push({
+        headerLine: line,
+        messageLines,
+        text: [line, ...messageLines].join("\n"),
+        dateIso,
+        timeDisplay: `${hh}:${mm}`,
+        sortStamp: `${dateIso}T${hh}:${mm}:${ss}`
+      });
+    }
+  }
+
+  return blocks.sort((a, b) => a.sortStamp.localeCompare(b.sortStamp));
+}
+
+function chooseBestEmergencyBlock(text) {
+  const blocks = parseEmergencyBlocks(text);
+  if (blocks.length === 0) {
+    return null;
+  }
+
+  return blocks[0];
+}
+
 function extractDetectedCode(text) {
   const upper = text.toUpperCase().replace(/\s+/g, "");
   const match = upper.match(/CONN[1-9]/);
@@ -635,29 +697,21 @@ function extractEventId(text) {
   return match ? match[0] : "";
 }
 
-function extractTimeFromTopLine(text) {
-  const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
-  const target = lines[0] || text;
-  const match = target.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+function extractIncidentType(text) {
+  const upper = text.toUpperCase();
 
-  if (!match) {
-    return "";
+  const known = ["MVA", "STRU", "ALAR", "ALARM", "NSTR", "INCI", "G&SC"];
+  for (const code of known) {
+    if (upper.includes(code)) {
+      return code === "ALARM" ? "ALAR" : code;
+    }
   }
 
-  return `${match[1].padStart(2, "0")}:${match[2]}`;
-}
-
-function extractDate(text) {
-  const match = text.match(/\b(\d{2})-(\d{2})-(\d{4})\b/);
-  if (!match) {
-    return "";
+  if (upper.includes("EMERGENCY")) {
+    return "Emergency";
   }
 
-  const dd = match[1];
-  const mm = match[2];
-  const yyyy = match[3];
-
-  return `${yyyy}-${mm}-${dd}`;
+  return "";
 }
 
 function cleanAddressLine(line) {
@@ -673,110 +727,75 @@ function cleanAddressLine(line) {
     .trim();
 }
 
-function extractAddress(text) {
-  const lines = (text || "")
-    .split(/\n+/)
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  const addressLine = lines.find(line => /^\d+[A-Za-z]?\s+/.test(line));
-  if (addressLine) {
-    return cleanAddressLine(addressLine);
+function extractAddressFromMessageLines(lines) {
+  if (!lines || !lines.length) {
+    return "";
   }
 
-  return "";
-}
+  const streetSuffixes = ["RD", "ROAD", "ST", "STREET", "AVE", "AVENUE", "DR", "DRIVE", "HWY", "HIGHWAY", "CT", "COURT", "CRES", "CRESCENT", "BLVD", "BOULEVARD", "PDE", "PARADE", "PL", "PLACE", "LANE", "LN", "WAY"];
 
-function extractIncidentClass(text) {
-  const upper = text.toUpperCase();
+  for (const line of lines) {
+    const cleaned = cleanAddressLine(line);
+    if (!/^\d+[A-Za-z]?\s+/.test(cleaned)) {
+      continue;
+    }
 
-  const known = ["MVA", "STRU", "ALAR", "ALARM", "NSTR", "INCI", "G&SC"];
-  for (const code of known) {
-    if (upper.includes(code)) {
-      return code === "ALARM" ? "ALAR" : code;
+    const upper = cleaned.toUpperCase();
+    const hasStreet = streetSuffixes.some(suffix => upper.includes(` ${suffix} `) || upper.endsWith(` ${suffix}`));
+
+    if (hasStreet) {
+      return cleaned;
     }
   }
 
-  return "";
-}
-
-function extractIncidentType(text, incidentClass) {
-  if (incidentClass === "MVA") return "MVA";
-  if (incidentClass === "STRU") return "STRU";
-  if (incidentClass === "ALAR") return "Alarm";
-  if (incidentClass === "NSTR") return "NSTR";
-  if (incidentClass === "INCI") return "INCI";
-  if (incidentClass === "G&SC") return "G&SC";
-
-  const upper = text.toUpperCase();
-  if (upper.includes("EMERGENCY")) return "Emergency";
-
-  return "";
-}
-
-function extractOtherAgencies(text) {
-  const upper = text.toUpperCase();
-  const knownAgencies = ["AFP", "AV", "SES", "FRV", "VICPOL", "POLICE"];
-
-  const found = knownAgencies.filter(code => {
-    const pattern = new RegExp(`\\b${code}\\b`);
-    return pattern.test(upper);
-  });
-
-  return found.join(", ");
+  const fallback = lines.find(line => /^\d+[A-Za-z]?\s+/.test(line.trim()));
+  return fallback ? cleanAddressLine(fallback) : "";
 }
 
 function applyOCRToIncidentFields(rawText) {
-  const text = normalizeOCRText(rawText);
+  const block = chooseBestEmergencyBlock(rawText);
+  const chosenText = block ? block.text : normalizeOCRText(rawText);
 
-  const detectedCode = extractDetectedCode(text);
+  const detectedCode = extractDetectedCode(chosenText);
   const detectedCallType = detectCallTypeFromCode(detectedCode);
-  const detectedEventId = extractEventId(text);
-  const detectedTime = extractTimeFromTopLine(text);
-  const detectedDate = extractDate(text);
-  const detectedAddress = extractAddress(rawText);
-  const detectedIncidentClass = extractIncidentClass(text);
-  const detectedIncidentType = extractIncidentType(text, detectedIncidentClass);
-  const detectedAgencies = extractOtherAgencies(text);
+  const detectedEventId = extractEventId(chosenText);
+  const detectedDate = block ? block.dateIso : "";
+  const detectedTime = block ? block.timeDisplay : "";
+  const detectedAddress = block ? extractAddressFromMessageLines(block.messageLines) : "";
+  const detectedIncidentType = extractIncidentType(chosenText);
 
   const codeField = document.getElementById("detected-brigade-code");
   const callTypeField = document.getElementById("call-type");
   const eventIdField = document.getElementById("event-id");
   const typeField = document.getElementById("incident-type");
-  const classField = document.getElementById("incident-class");
   const addressField = document.getElementById("incident-address");
   const pagerDateField = document.getElementById("pager-date");
   const pagerTimeField = document.getElementById("pager-time");
-  const agenciesField = document.getElementById("other-agencies");
 
   if (codeField) codeField.value = detectedCode;
   if (callTypeField) callTypeField.value = detectedCallType;
   if (eventIdField && detectedEventId) eventIdField.value = detectedEventId;
-  if (classField && detectedIncidentClass) classField.value = detectedIncidentClass;
-  if (typeField && detectedIncidentType && !typeField.value.trim()) typeField.value = detectedIncidentType;
+  if (typeField && detectedIncidentType) typeField.value = detectedIncidentType;
   if (addressField && detectedAddress) addressField.value = detectedAddress;
   if (pagerDateField && detectedDate) pagerDateField.value = detectedDate;
   if (pagerTimeField && detectedTime) pagerTimeField.value = detectedTime;
-  if (agenciesField && detectedAgencies) agenciesField.value = detectedAgencies;
 
   updateEventIdPlaceholder();
-  applyCallTypeUI();
-  applyIncidentClassUI();
+  applyIncidentTypeUI();
 
   const summaryParts = [];
   if (detectedCode) summaryParts.push(`Code: ${detectedCode}`);
   if (detectedCallType) summaryParts.push(`Call Type: ${detectedCallType}`);
   if (detectedEventId) summaryParts.push(`Event ID: ${detectedEventId}`);
-  if (detectedIncidentClass) summaryParts.push(`Class: ${detectedIncidentClass}`);
+  if (detectedIncidentType) summaryParts.push(`Type: ${detectedIncidentType}`);
   if (detectedDate) summaryParts.push("Date captured");
   if (detectedTime) summaryParts.push("Time captured");
   if (detectedAddress) summaryParts.push("Address filled");
-  if (detectedAgencies) summaryParts.push(`Agencies: ${detectedAgencies}`);
 
   if (summaryParts.length) {
     setSASStatus(`OCR complete. ${summaryParts.join(" | ")}`);
   } else {
-    setSASStatus("OCR complete, but the alert card could not be read clearly.");
+    setSASStatus("OCR complete, but the emergency message could not be read clearly.");
   }
 }
 
@@ -810,12 +829,6 @@ function validateReportRequirements() {
   }
 
   return true;
-}
-
-function isQuietHours() {
-  const now = new Date();
-  const hour = now.getHours();
-  return hour >= 22 || hour < 7;
 }
 
 /* Report grouping helpers */
@@ -930,6 +943,32 @@ function formatStationAndDirectSection() {
   return output;
 }
 
+function buildAgencyText() {
+  const agencyType = document.getElementById("agency-type")?.value || "";
+  if (!agencyType) {
+    return "None recorded";
+  }
+
+  const name = document.getElementById("agency-name")?.value.trim() || "";
+  const contact = document.getElementById("agency-contact-number")?.value.trim() || "";
+  const station = document.getElementById("agency-station")?.value.trim() || "";
+  const badge = document.getElementById("agency-badge")?.value.trim() || "";
+  const headquarters = document.getElementById("agency-headquarters")?.value.trim() || "";
+  const office = document.getElementById("agency-office")?.value.trim() || "";
+  const other = document.getElementById("agency-other")?.value.trim() || "";
+
+  const parts = [`Agency: ${agencyType}`];
+  if (name) parts.push(`Name: ${name}`);
+  if (contact) parts.push(`Contact: ${contact}`);
+  if (station) parts.push(`Station: ${station}`);
+  if (badge) parts.push(`Badge: ${badge}`);
+  if (headquarters) parts.push(`Headquarters: ${headquarters}`);
+  if (office) parts.push(`Office: ${office}`);
+  if (other) parts.push(`Other: ${other}`);
+
+  return parts.join(" | ");
+}
+
 /* Report building */
 function buildReportText() {
   const eventId = getEventId();
@@ -938,15 +977,11 @@ function buildReportText() {
   const firsCode = getFirsCode();
   const address = getAddress();
   const incidentType = getIncidentType();
-  const incidentClass = getIncidentClass();
-  const callType = getFinalCallType();
-  const otherAgencies = getOtherAgencies();
+  const callType = getCallType();
+  const agencyText = buildAgencyText();
   const oic = getCurrentOIC();
   const profile = getStoredProfile();
-
-  const vehicle1 = document.getElementById("vehicle-1")?.value.trim() || "";
-  const vehicle2 = document.getElementById("vehicle-2")?.value.trim() || "";
-  const vehicleNotes = document.getElementById("vehicle-notes")?.value.trim() || "";
+  const vehicles = collectVehicleData();
 
   const applianceLines = formatGroupedApplianceSection();
   const stationDirectLines = formatStationAndDirectSection();
@@ -955,25 +990,27 @@ function buildReportText() {
     `EVENT ID: ${eventId || "Not entered"}`,
     `PAGER DATE: ${pagerDate || "Not entered"}`,
     `PAGER TIME: ${pagerTime || "Not entered"}`,
-    `INCIDENT CLASS: ${incidentClass || "Not entered"}`,
-    `TYPE: ${incidentType || "Not entered"}`,
+    `INCIDENT TYPE: ${incidentType || "Not entered"}`,
     `CALL TYPE: ${callType || "Not entered"}`,
     `ADDRESS: ${address || "Not entered"}`,
-    `OTHER AGENCIES: ${otherAgencies || "None recorded"}`
+    `OTHER AGENCY: ${agencyText}`,
+    `FIRS CODE: ${firsCode || "Not entered"}`
   ];
 
-  if (callType !== "Support") {
-    baseLines.push(`FIRS CODE: ${firsCode || "Not entered"}`);
-  }
+  if ((incidentType || "").toUpperCase().includes("MVA")) {
+    baseLines.push("", "VEHICLE REPORT");
 
-  if ((incidentClass || "").toUpperCase() === "MVA") {
-    baseLines.push(
-      "",
-      "VEHICLE REPORT",
-      `Vehicle 1: ${vehicle1 || "Not entered"}`,
-      `Vehicle 2: ${vehicle2 || "Not entered"}`,
-      `Other Vehicle / Notes: ${vehicleNotes || "Not entered"}`
-    );
+    vehicles.forEach((vehicle, index) => {
+      baseLines.push(
+        `Vehicle ${index + 1}:`,
+        `Make: ${vehicle.make || "Not entered"}`,
+        `Model: ${vehicle.model || "Not entered"}`,
+        `Rego: ${vehicle.rego || "Not entered"}`,
+        `State: ${vehicle.state || "Not entered"}`,
+        `Driver Name: ${vehicle.driverName || "Not entered"}`,
+        `Driver Contact: ${vehicle.driverContact || "Not entered"}`
+      );
+    });
   }
 
   baseLines.push(
@@ -986,6 +1023,7 @@ function buildReportText() {
     "",
     `REPORT AUTHOR: ${profile?.name || "Not saved"}`,
     `CFA MEMBER NUMBER: ${profile?.number || "Not saved"}`,
+    `AUTHOR PHONE: ${profile?.phone || "Not saved"}`,
     `AUTHOR BRIGADE: ${profile?.brigade || "Not saved"}`,
     `AUTHOR ROLE: ${profile?.role || "Not saved"}`
   );
@@ -1008,32 +1046,63 @@ function generateReport() {
   localStorage.setItem("savedReportPreview", report);
 }
 
-function copyReport() {
-  const preview = document.getElementById("report-preview");
-
-  if (!preview || !preview.value.trim()) {
-    alert("Generate the report first.");
+/* Sending */
+function sendAsSMS() {
+  if (!validateReportRequirements()) {
     return;
   }
 
-  navigator.clipboard.writeText(preview.value)
+  const report = buildReportText();
+  const preview = document.getElementById("report-preview");
+  if (preview) {
+    preview.value = report;
+  }
+
+  localStorage.setItem("savedReportPreview", report);
+
+  navigator.clipboard.writeText(report)
     .then(() => {
-      alert("Report copied to clipboard");
+      alert("Report copied to clipboard for SMS.");
     })
     .catch(() => {
-      alert("Copy failed");
+      alert("Could not copy report to clipboard.");
     });
+}
+
+function sendAsEmail() {
+  if (!validateReportRequirements()) {
+    return;
+  }
+
+  const report = buildReportText();
+  const preview = document.getElementById("report-preview");
+  if (preview) {
+    preview.value = report;
+  }
+
+  localStorage.setItem("savedReportPreview", report);
+
+  const settings = getStoredSettings();
+  const reportEmail = settings?.reportEmail || "";
+  const subject = encodeURIComponent(`Turnout Report – ${getIncidentType() || "Incident"} – ${getStreetNameFromAddress(getAddress())} – ${getEventId() || "No Event ID"}`);
+  const body = encodeURIComponent(report);
+
+  const mailto = reportEmail
+    ? `mailto:${reportEmail}?subject=${subject}&body=${body}`
+    : `mailto:?subject=${subject}&body=${body}`;
+
+  window.location.href = mailto;
 }
 
 /* Past events */
 function buildPastEventTitle(reportText) {
   const lines = reportText.split("\n");
 
-  const typeLine = lines.find(line => line.startsWith("TYPE: "));
+  const typeLine = lines.find(line => line.startsWith("INCIDENT TYPE: "));
   const addressLine = lines.find(line => line.startsWith("ADDRESS: "));
   const dateLine = lines.find(line => line.startsWith("PAGER DATE: "));
 
-  const type = typeLine ? typeLine.replace("TYPE: ", "").trim() : "Unknown Type";
+  const type = typeLine ? typeLine.replace("INCIDENT TYPE: ", "").trim() : "Unknown Type";
   const address = addressLine ? addressLine.replace("ADDRESS: ", "").trim() : "";
   const date = dateLine ? dateLine.replace("PAGER DATE: ", "").trim() : "Unknown Date";
 
@@ -1097,15 +1166,16 @@ function renderPastEvents() {
     wrapper.innerHTML = `
       <h4>${item.title || "Untitled Report"}</h4>
       <div>${item.eventId || "No Event ID"}</div>
-      <button type="button" onclick="loadSavedReport(${index})">Open Report</button>
-      <button type="button" onclick="emailSavedReportToSecretary(${index})">Email Secretary</button>
+      <button type="button" onclick="openSavedReport(${index})">Open</button>
+      <button type="button" onclick="sendSavedReportAsSMS(${index})">Send as SMS</button>
+      <button type="button" onclick="sendSavedReportAsEmail(${index})">Send as Email</button>
     `;
 
     list.appendChild(wrapper);
   });
 }
 
-function loadSavedReport(index) {
+function openSavedReport(index) {
   const savedReports = getSavedReports();
   const item = savedReports[index];
 
@@ -1122,7 +1192,24 @@ function loadSavedReport(index) {
   showTab("send-tab");
 }
 
-function emailSavedReportToSecretary(index) {
+function sendSavedReportAsSMS(index) {
+  const savedReports = getSavedReports();
+  const item = savedReports[index];
+
+  if (!item) {
+    return;
+  }
+
+  navigator.clipboard.writeText(item.reportText || "")
+    .then(() => {
+      alert("Saved report copied to clipboard for SMS.");
+    })
+    .catch(() => {
+      alert("Could not copy saved report.");
+    });
+}
+
+function sendSavedReportAsEmail(index) {
   const savedReports = getSavedReports();
   const item = savedReports[index];
 
@@ -1131,130 +1218,16 @@ function emailSavedReportToSecretary(index) {
   }
 
   const settings = getStoredSettings();
-  const secretaryEmail = settings?.secretaryEmail || "";
+  const reportEmail = settings?.reportEmail || "";
 
   const subject = encodeURIComponent(`Turnout Report – ${item.title || item.eventId || "Saved Report"}`);
   const body = encodeURIComponent(item.reportText || "");
 
-  const mailto = secretaryEmail
-    ? `mailto:${secretaryEmail}?subject=${subject}&body=${body}`
+  const mailto = reportEmail
+    ? `mailto:${reportEmail}?subject=${subject}&body=${body}`
     : `mailto:?subject=${subject}&body=${body}`;
 
   window.location.href = mailto;
-}
-
-/* Send/save workflow */
-async function sendReportNow() {
-  const report = buildReportText();
-  const preview = document.getElementById("report-preview");
-
-  if (preview) {
-    preview.value = report;
-  }
-
-  localStorage.setItem("savedReportPreview", report);
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: "Turnout Report",
-        text: report
-      });
-      return;
-    } catch (err) {
-      console.log("Share cancelled or failed", err);
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(report);
-    alert("Report copied to clipboard. Paste it into your SMS or email.");
-  } catch {
-    alert("Unable to send directly. Copy the report manually.");
-  }
-}
-
-function emailCurrentReportToSecretary() {
-  if (!validateReportRequirements()) {
-    return;
-  }
-
-  const report = buildReportText();
-  const settings = getStoredSettings();
-  const secretaryEmail = settings?.secretaryEmail || "";
-
-  const eventId = getEventId();
-  const title = buildPastEventTitle(report);
-
-  const subject = encodeURIComponent(`Turnout Report – ${title} – ${eventId || "No Event ID"}`);
-  const body = encodeURIComponent(report);
-
-  const mailto = secretaryEmail
-    ? `mailto:${secretaryEmail}?subject=${subject}&body=${body}`
-    : `mailto:?subject=${subject}&body=${body}`;
-
-  window.location.href = mailto;
-}
-
-function quietHoursPrompt() {
-  const sendNow = confirm(
-    "Does this report need to be sent now?\n\n" +
-    "Yes = send now\n" +
-    "Cancel = choose Save to local or Return to report"
-  );
-
-  if (sendNow) {
-    sendReportNow();
-    return;
-  }
-
-  const saveLocal = confirm(
-    "Would you like to save this report to local storage?\n\n" +
-    "Yes = Save to local\n" +
-    "Cancel = Return to report"
-  );
-
-  if (saveLocal) {
-    saveReportLocally();
-  } else {
-    showTab("incident-tab");
-  }
-}
-
-function handleSendAction() {
-  if (!validateReportRequirements()) {
-    return;
-  }
-
-  generateReport();
-
-  if (isQuietHours()) {
-    quietHoursPrompt();
-    return;
-  }
-
-  const sendNow = confirm(
-    "Does this report need to be sent now?\n\n" +
-    "Yes = send now\n" +
-    "Cancel = choose Save to local or Return to report"
-  );
-
-  if (sendNow) {
-    sendReportNow();
-    return;
-  }
-
-  const saveLocal = confirm(
-    "Would you like to save this report to local storage?\n\n" +
-    "Yes = Save to local\n" +
-    "Cancel = Return to report"
-  );
-
-  if (saveLocal) {
-    saveReportLocally();
-  } else {
-    showTab("incident-tab");
-  }
 }
 
 /* Connewarre */
@@ -1394,7 +1367,6 @@ function updateConnMember(index, field, value) {
 
 function removeConnewarreMember(index) {
   const removedMember = selectedConnewarreMembers[index];
-
   selectedConnewarreMembers.splice(index, 1);
 
   if (removedMember && removedMember.isOIC) {
@@ -1415,7 +1387,6 @@ function setConnewarreOIC(index, checked) {
         renderConnewarreMembers();
         return;
       }
-
       clearAllOICFlags();
     }
 
@@ -1659,7 +1630,6 @@ function updateMTDMember(index, field, value) {
 
 function removeMTDMember(index) {
   const removedMember = selectedMTDMembers[index];
-
   selectedMTDMembers.splice(index, 1);
 
   if (removedMember && removedMember.isOIC) {
@@ -1705,7 +1675,6 @@ function setMTDOIC(index, checked) {
         renderMTDMembers();
         return;
       }
-
       clearAllOICFlags();
     }
 
