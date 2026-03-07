@@ -27,7 +27,7 @@ function showTab(tab) {
   }
 }
 
-/* Register service worker for offline support */
+/* Service worker */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("service-worker.js")
@@ -62,13 +62,12 @@ async function loadMembers() {
 
 document.addEventListener("DOMContentLoaded", function () {
   const now = new Date();
-  const date = now.toISOString().split("T")[0];
 
   const pagerDate = document.getElementById("pager-date");
   const pagerTime = document.getElementById("pager-time");
 
   if (pagerDate && !pagerDate.value) {
-    pagerDate.value = date;
+    pagerDate.value = now.toISOString().split("T")[0];
   }
 
   if (pagerTime && !pagerTime.value) {
@@ -80,15 +79,14 @@ document.addEventListener("DOMContentLoaded", function () {
   renderPastEvents();
   bindSASUpload();
   bindCallTypeOverride();
+  updateEventIdPlaceholder();
+  applyCallTypeUI();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
   if (preview && previewField) {
     previewField.value = preview;
   }
-
-  updateEventIdPlaceholder();
-  applyCallTypeUI();
 });
 
 /* Profile and settings */
@@ -183,6 +181,8 @@ function updateProfileDisplays(profile, settings) {
   const authorBrigade = document.getElementById("author-brigade-display");
   const authorRole = document.getElementById("author-role-display");
 
+  const secretaryLabel = document.getElementById("secretary-email-display");
+
   const nameText = safeProfile.name || "Not saved";
   const numberText = safeProfile.number || "Not saved";
   const brigadeText = safeProfile.brigade || "Not saved";
@@ -198,7 +198,6 @@ function updateProfileDisplays(profile, settings) {
   if (authorBrigade) authorBrigade.textContent = brigadeText;
   if (authorRole) authorRole.textContent = roleText;
 
-  const secretaryLabel = document.getElementById("secretary-email-display");
   if (secretaryLabel) {
     secretaryLabel.textContent = safeSettings.secretaryEmail || "Not saved";
   }
@@ -297,18 +296,16 @@ function formatDisplayDate(dateStr) {
     return "Unknown Date";
   }
 
-  // Handles yyyy-mm-dd for storage/display conversion
   const parts = dateStr.split("-");
   if (parts.length !== 3) {
     return dateStr;
   }
 
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   if (parts[0].length === 4) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
   }
 
-  // fallback if already dd-mm-yyyy
   return dateStr;
 }
 
@@ -382,7 +379,11 @@ function bindCallTypeOverride() {
 /* SAS upload and OCR */
 function bindSASUpload() {
   const upload = document.getElementById("sas-upload");
-  if (!upload) {
+  const previewWrap = document.getElementById("sas-preview-wrap");
+  const previewImg = document.getElementById("sas-preview");
+  const status = document.getElementById("sas-status");
+
+  if (!upload || !previewWrap || !previewImg || !status) {
     return;
   }
 
@@ -392,11 +393,12 @@ function bindSASUpload() {
       return;
     }
 
-    previewSASImage(file);
     setSASStatus("Preparing screenshot...");
+    previewSASImage(file);
 
     try {
-      const croppedBlob = await cropAlertBoxFromImage(file);
+      const croppedBlob = await cropAlertCardFromImage(file);
+      setSASStatus("Running OCR...");
       const text = await runSASOCR(croppedBlob);
       applyOCRToIncidentFields(text);
     } catch (err) {
@@ -432,54 +434,153 @@ function setSASStatus(message) {
 function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = function (e) {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = reject;
       img.src = e.target.result;
     };
+
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-async function cropAlertBoxFromImage(file) {
+function isRedPixel(r, g, b) {
+  return r > 130 && g < 110 && b < 110 && (r - g) > 35 && (r - b) > 35;
+}
+
+function findLargestRedBounds(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height).data;
+
+  const topCrop = Math.floor(height * 0.28);
+  const bottomCrop = Math.floor(height * 0.85);
+
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let found = false;
+
+  for (let y = topCrop; y < bottomCrop; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * 4;
+      const r = imageData[index];
+      const g = imageData[index + 1];
+      const b = imageData[index + 2];
+
+      if (isRedPixel(r, g, b)) {
+        found = true;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (!found) {
+    return null;
+  }
+
+  const padX = Math.floor(width * 0.03);
+  const padTop = Math.floor(height * 0.02);
+  const padBottom = Math.floor(height * 0.03);
+
+  minX = Math.max(0, minX - padX);
+  maxX = Math.min(width, maxX + padX);
+  minY = Math.max(0, minY - padTop);
+  maxY = Math.min(height, maxY + padBottom);
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  };
+}
+
+function preprocessCanvas(sourceCanvas) {
+  const canvas = document.createElement("canvas");
+  canvas.width = sourceCanvas.width;
+  canvas.height = sourceCanvas.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    gray = gray < 145 ? 0 : 255;
+
+    data[i] = gray;
+    data[i + 1] = gray;
+    data[i + 2] = gray;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+async function cropAlertCardFromImage(file) {
   const img = await loadImageFile(file);
 
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  const baseCanvas = document.createElement("canvas");
+  const maxWidth = 900;
+  const scale = Math.min(1, maxWidth / img.width);
 
-  const width = img.width;
-  const height = img.height;
+  baseCanvas.width = Math.floor(img.width * scale);
+  baseCanvas.height = Math.floor(img.height * scale);
 
-  /*
-    Approx crop for the red alert box:
-    - starts below the top black panel
-    - excludes lower location card and map
-    Tuned for typical tall Android screenshot layout
-  */
-  const cropX = Math.floor(width * 0.06);
-  const cropY = Math.floor(height * 0.17);
-  const cropWidth = Math.floor(width * 0.88);
-  const cropHeight = Math.floor(height * 0.22);
+  const baseCtx = baseCanvas.getContext("2d");
+  baseCtx.drawImage(img, 0, 0, baseCanvas.width, baseCanvas.height);
 
-  canvas.width = cropWidth;
-  canvas.height = cropHeight;
+  const bounds = findLargestRedBounds(baseCtx, baseCanvas.width, baseCanvas.height);
 
-  ctx.drawImage(
-    img,
+  let cropX;
+  let cropY;
+  let cropWidth;
+  let cropHeight;
+
+  if (bounds) {
+    cropX = bounds.x;
+    cropY = bounds.y;
+    cropWidth = bounds.width;
+    cropHeight = bounds.height;
+  } else {
+    cropX = Math.floor(baseCanvas.width * 0.05);
+    cropY = Math.floor(baseCanvas.height * 0.38);
+    cropWidth = Math.floor(baseCanvas.width * 0.90);
+    cropHeight = Math.floor(baseCanvas.height * 0.22);
+  }
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = cropWidth;
+  cropCanvas.height = cropHeight;
+
+  const cropCtx = cropCanvas.getContext("2d");
+  cropCtx.drawImage(
+    baseCanvas,
     cropX, cropY, cropWidth, cropHeight,
     0, 0, cropWidth, cropHeight
   );
 
+  const processedCanvas = preprocessCanvas(cropCanvas);
+
   return new Promise(resolve => {
-    canvas.toBlob(blob => resolve(blob), "image/png");
+    processedCanvas.toBlob(blob => resolve(blob), "image/png");
   });
 }
 
 async function runSASOCR(imageBlob) {
-  setSASStatus("Running OCR...");
-
   const result = await Tesseract.recognize(imageBlob, "eng", {
     logger: m => {
       if (m.status === "recognizing text") {
@@ -499,23 +600,20 @@ function normalizeOCRText(text) {
     .replace(/[“”]/g, '"')
     .replace(/\t/g, " ")
     .replace(/[ ]{2,}/g, " ")
+    .replace(/O(?=\d)/g, "0")
+    .replace(/(?<=\d)O/g, "0")
     .trim();
 }
 
 function extractDetectedCode(text) {
-  const upper = text.toUpperCase();
-
-  const match =
-    upper.match(/\bCONN[1-9]\b/) ||
-    upper.match(/\bCONN[1-9]/) ||
-    upper.match(/\b[A-Z]{4,6}[0-9]\b/);
-
+  const upper = text.toUpperCase().replace(/\s+/g, "");
+  const match = upper.match(/CONN[1-9]/);
   return match ? match[0] : "";
 }
 
 function extractEventId(text) {
-  const upper = text.toUpperCase();
-  const match = upper.match(/\bF\d{9}\b/);
+  const upper = text.toUpperCase().replace(/\s+/g, "");
+  const match = upper.match(/F\d{9}/);
   return match ? match[0] : "";
 }
 
@@ -524,6 +622,7 @@ function extractTime(text) {
   if (!match) {
     return "";
   }
+
   return `${match[1].padStart(2, "0")}:${match[2]}`;
 }
 
@@ -537,8 +636,20 @@ function extractDate(text) {
   const mm = match[2];
   const yyyy = match[3];
 
-  // date input needs yyyy-mm-dd behind the scenes
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function cleanAddressLine(line) {
+  if (!line) {
+    return "";
+  }
+
+  return line
+    .replace(/\/[A-Z0-9\s.'-]+$/i, "")
+    .replace(/\bM\s*\d+\b.*$/i, "")
+    .replace(/\([^)]+\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function extractAddress(text) {
@@ -547,46 +658,24 @@ function extractAddress(text) {
     .map(line => line.trim())
     .filter(Boolean);
 
-  // Prefer a line starting with a street number
-  const numberedLine = lines.find(line =>
-    /^\d+[A-Za-z]?\s+/.test(line)
-  );
-
-  if (numberedLine) {
-    return cleanAddressLine(numberedLine);
+  const addressLine = lines.find(line => /^\d+[A-Za-z]?\s+/.test(line));
+  if (addressLine) {
+    return cleanAddressLine(addressLine);
   }
 
-  // fallback: search full text for number + road/locality pattern
-  const compact = lines.join(" ");
-  const match = compact.match(/\b\d+[A-Za-z]?\s+[A-Z0-9\s.'/-]{3,80}\b/i);
-  return match ? cleanAddressLine(match[0]) : "";
-}
-
-function cleanAddressLine(line) {
-  if (!line) {
-    return "";
-  }
-
-  let cleaned = line
-    .replace(/\/[A-Z\s]+$/i, "")
-    .replace(/\bM\s*\d+\b.*$/i, "")
-    .replace(/\([^)]+\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-
-  return cleaned;
+  return "";
 }
 
 function extractIncidentType(text) {
   const upper = text.toUpperCase();
 
-  if (upper.includes("EMERGENCY")) return "Emergency";
   if (upper.includes("ALARM")) return "Alarm";
   if (upper.includes("MVA")) return "MVA";
   if (upper.includes("STRU")) return "STRU";
   if (upper.includes("NSTR")) return "NSTR";
   if (upper.includes("G&SC")) return "G&SC";
   if (upper.includes("INCI")) return "INCI";
+  if (upper.includes("EMERGENCY")) return "Emergency";
 
   return "";
 }
@@ -645,11 +734,15 @@ function applyOCRToIncidentFields(rawText) {
   if (detectedCode) summaryParts.push(`Code: ${detectedCode}`);
   if (detectedCallType) summaryParts.push(`Call Type: ${detectedCallType}`);
   if (detectedEventId) summaryParts.push(`Event ID: ${detectedEventId}`);
-  if (detectedDate) summaryParts.push(`Date captured`);
-  if (detectedTime) summaryParts.push(`Time captured`);
-  if (detectedAddress) summaryParts.push(`Address filled`);
+  if (detectedDate) summaryParts.push("Date captured");
+  if (detectedTime) summaryParts.push("Time captured");
+  if (detectedAddress) summaryParts.push("Address filled");
 
-  setSASStatus(summaryParts.length ? `OCR complete. ${summaryParts.join(" | ")}` : "OCR complete, but little usable text was found.");
+  if (summaryParts.length) {
+    setSASStatus(`OCR complete. ${summaryParts.join(" | ")}`);
+  } else {
+    setSASStatus("OCR complete, but the alert card could not be read clearly.");
+  }
 }
 
 /* Validation helpers */
@@ -738,7 +831,6 @@ function formatGroupedApplianceSection() {
   const mtdGroups = groupByAppliance(selectedMTDMembers, "");
 
   const mergedGroups = { ...connGroups, ...mtdGroups };
-
   const groupNames = Object.keys(mergedGroups);
 
   if (groupNames.length === 0) {
@@ -847,13 +939,13 @@ function buildReportText() {
   }
 
   baseLines.push(
-    ``,
+    "",
     `OIC: ${oic ? oic.name : "Not assigned"}`,
     `PHONE: ${oic ? (oic.phone || "______") : "______"}`,
-    ``,
+    "",
     ...applianceLines,
     ...stationDirectLines,
-    ``,
+    "",
     `REPORT AUTHOR: ${profile?.name || "Not saved"}`,
     `CFA MEMBER NUMBER: ${profile?.number || "Not saved"}`,
     `AUTHOR BRIGADE: ${profile?.brigade || "Not saved"}`,
@@ -896,7 +988,7 @@ function copyReport() {
 }
 
 /* Past events */
-function buildPastEventTitle(reportText, eventId) {
+function buildPastEventTitle(reportText) {
   const lines = reportText.split("\n");
 
   const typeLine = lines.find(line => line.startsWith("TYPE: "));
@@ -930,7 +1022,7 @@ function saveReportLocally() {
   savedReports.unshift({
     savedAt: new Date().toISOString(),
     eventId: eventId,
-    title: buildPastEventTitle(report, eventId),
+    title: buildPastEventTitle(report),
     reportText: report
   });
 
@@ -1054,7 +1146,7 @@ function emailCurrentReportToSecretary() {
   const secretaryEmail = settings?.secretaryEmail || "";
 
   const eventId = getEventId();
-  const title = buildPastEventTitle(report, eventId);
+  const title = buildPastEventTitle(report);
 
   const subject = encodeURIComponent(`Turnout Report – ${title} – ${eventId || "No Event ID"}`);
   const body = encodeURIComponent(report);
@@ -1569,7 +1661,7 @@ function setMTDOIC(index, checked) {
   const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
 
   if (checked) {
-    if ((existingConn !== -1 && existingConn !== index) || existingMTD !== -1) {
+    if (existingConn !== -1 || (existingMTD !== -1 && existingMTD !== index)) {
       const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
       if (!replace) {
         renderMTDMembers();
@@ -1588,36 +1680,3 @@ function setMTDOIC(index, checked) {
   renderMTDMembers();
   refreshOICHeaderFromSelections();
 }
-/* SAS Upload Handler */
-
-document.addEventListener("DOMContentLoaded", () => {
-
-  const upload = document.getElementById("sas-upload");
-  const previewWrap = document.getElementById("sas-preview-wrap");
-  const previewImg = document.getElementById("sas-preview");
-  const status = document.getElementById("sas-status");
-
-  if (!upload) return;
-
-  upload.addEventListener("change", event => {
-
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    status.textContent = "Screenshot loaded";
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-
-      previewImg.src = e.target.result;
-      previewWrap.style.display = "block";
-
-    };
-
-    reader.readAsDataURL(file);
-
-  });
-
-});
