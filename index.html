@@ -30,6 +30,7 @@ Phone: <span id="oic-phone">______</span>
 <button onclick="showTab('connewarre-tab')">Connewarre</button>
 <button onclick="showTab('mtd-tab')">MTD</button>
 <button onclick="showTab('send-tab')">Send</button>
+<button onclick="showTab('profile-tab')">Profile</button>
 
 </nav>
 
@@ -108,11 +109,59 @@ Phone: <span id="oic-phone">______</span>
 
 <h2>Send Report</h2>
 
+<button type="button" onclick="handleSendAction()">Send / Save Report</button>
 <button type="button" onclick="generateReport()">Generate Report</button>
 <button type="button" onclick="copyReport()">Copy Report</button>
 
+<h3>Author Details</h3>
+<div id="author-summary">
+  <p>Name: <span id="author-name-display">Not saved</span></p>
+  <p>CFA Member Number: <span id="author-number-display">Not saved</span></p>
+  <p>Brigade: <span id="author-brigade-display">Not saved</span></p>
+  <p>Role: <span id="author-role-display">Not saved</span></p>
+</div>
+
 <h3>Report Preview</h3>
 <textarea id="report-preview" rows="20" readonly></textarea>
+
+</section>
+
+<section id="profile-tab" style="display:none">
+
+<h2>Profile</h2>
+
+<label>Name</label>
+<input type="text" id="profile-name" placeholder="Enter your name">
+
+<label>CFA Member Number</label>
+<input type="text" id="profile-number" placeholder="Enter CFA member number">
+
+<label>Brigade</label>
+<select id="profile-brigade">
+  <option value="">Select brigade</option>
+  <option value="Connewarre">Connewarre</option>
+  <option value="Grovedale">Grovedale</option>
+  <option value="Freshwater Creek">Freshwater Creek</option>
+  <option value="Other">Other</option>
+</select>
+
+<label>Role</label>
+<select id="profile-role">
+  <option value="">Select role</option>
+  <option value="Captain">Captain</option>
+  <option value="Lieutenant">Lieutenant</option>
+  <option value="Fire Fighter">Fire Fighter</option>
+</select>
+
+<button type="button" onclick="saveProfile()">Save Profile</button>
+
+<h3>Saved Profile</h3>
+<div id="profile-summary">
+  <p>Name: <span id="profile-name-display">Not saved</span></p>
+  <p>CFA Member Number: <span id="profile-number-display">Not saved</span></p>
+  <p>Brigade: <span id="profile-brigade-display">Not saved</span></p>
+  <p>Role: <span id="profile-role-display">Not saved</span></p>
+</div>
 
 </section>
 
