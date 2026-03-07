@@ -40,6 +40,33 @@ Phone: <span id="oic-phone">______</span>
 
 <h2>Incident Details</h2>
 
+<h3>SAS Upload</h3>
+
+<label>Upload SAS Screenshot</label>
+<input type="file" id="sas-upload" accept="image/*">
+
+<div id="sas-preview-wrap" style="display:none;">
+  <h3>SAS Preview</h3>
+  <img id="sas-preview" alt="SAS screenshot preview" style="max-width:100%; border:1px solid #ccc; border-radius:4px;">
+</div>
+
+<div id="sas-status-wrap">
+  <p id="sas-status">No screenshot uploaded.</p>
+</div>
+
+<label>Detected Brigade Code</label>
+<input type="text" id="detected-brigade-code" placeholder="Will fill from SAS OCR or manual entry">
+
+<label>Call Type</label>
+<input type="text" id="call-type" readonly placeholder="Will be set from SAS code">
+
+<label>Manual Override</label>
+<select id="call-type-override">
+  <option value="">Use detected call type</option>
+  <option value="Primary">Primary</option>
+  <option value="Support">Support</option>
+</select>
+
 <label>Pager Date</label>
 <input type="date" id="pager-date" onchange="updateEventIdPlaceholder()">
 
@@ -55,10 +82,11 @@ Phone: <span id="oic-phone">______</span>
 <label>Incident Address</label>
 <input type="text" id="incident-address" placeholder="Enter or edit incident address">
 
-<label>FIRS Code</label>
-<input type="text" id="firs-code">
-
-<button type="button" onclick="pasteFirs()">Paste</button>
+<div id="firs-code-wrap">
+  <label>FIRS Code</label>
+  <input type="text" id="firs-code">
+  <button type="button" onclick="pasteFirs()">Paste</button>
+</div>
 
 </section>
 
@@ -180,6 +208,7 @@ Phone: <span id="oic-phone">______</span>
 
 </main>
 
+<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="app.js"></script>
 
 </body>
