@@ -79,8 +79,10 @@ document.addEventListener("DOMContentLoaded", function () {
   renderPastEvents();
   bindSASUpload();
   bindCallTypeOverride();
+  bindIncidentClassWatcher();
   updateEventIdPlaceholder();
   applyCallTypeUI();
+  applyIncidentClassUI();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
@@ -271,6 +273,14 @@ function getIncidentType() {
   return document.getElementById("incident-type")?.value.trim() || "";
 }
 
+function getIncidentClass() {
+  return document.getElementById("incident-class")?.value.trim() || "";
+}
+
+function getOtherAgencies() {
+  return document.getElementById("other-agencies")?.value.trim() || "";
+}
+
 function getStreetNameFromAddress(address) {
   if (!address) {
     return "Unknown Street";
@@ -326,7 +336,7 @@ function updateEventIdPlaceholder() {
   eventField.placeholder = `F${shortYear}${month}_____`;
 }
 
-/* Call type helpers */
+/* Call type and incident class helpers */
 function detectCallTypeFromCode(code) {
   const clean = (code || "").toUpperCase().trim();
 
@@ -358,11 +368,7 @@ function applyCallTypeUI() {
     return;
   }
 
-  if (finalType === "Support") {
-    firsWrap.style.display = "none";
-  } else {
-    firsWrap.style.display = "block";
-  }
+  firsWrap.style.display = finalType === "Support" ? "none" : "block";
 }
 
 function bindCallTypeOverride() {
@@ -373,6 +379,28 @@ function bindCallTypeOverride() {
 
   override.addEventListener("change", () => {
     applyCallTypeUI();
+  });
+}
+
+function applyIncidentClassUI() {
+  const incidentClass = (getIncidentClass() || "").toUpperCase();
+  const mvaSection = document.getElementById("mva-section");
+
+  if (!mvaSection) {
+    return;
+  }
+
+  mvaSection.style.display = incidentClass === "MVA" ? "block" : "none";
+}
+
+function bindIncidentClassWatcher() {
+  const incidentClassField = document.getElementById("incident-class");
+  if (!incidentClassField) {
+    return;
+  }
+
+  incidentClassField.addEventListener("input", () => {
+    applyIncidentClassUI();
   });
 }
 
@@ -454,8 +482,8 @@ function isRedPixel(r, g, b) {
 function findLargestRedBounds(ctx, width, height) {
   const imageData = ctx.getImageData(0, 0, width, height).data;
 
-  const topCrop = Math.floor(height * 0.28);
-  const bottomCrop = Math.floor(height * 0.85);
+  const topCrop = Math.floor(height * 0.22);
+  const bottomCrop = Math.floor(height * 0.80);
 
   let minX = width;
   let minY = height;
@@ -484,20 +512,11 @@ function findLargestRedBounds(ctx, width, height) {
     return null;
   }
 
-  const padX = Math.floor(width * 0.03);
-  const padTop = Math.floor(height * 0.02);
-  const padBottom = Math.floor(height * 0.03);
-
-  minX = Math.max(0, minX - padX);
-  maxX = Math.min(width, maxX + padX);
-  minY = Math.max(0, minY - padTop);
-  maxY = Math.min(height, maxY + padBottom);
-
   return {
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY
+    x: Math.max(0, minX - Math.floor(width * 0.02)),
+    y: Math.max(0, minY - Math.floor(height * 0.01)),
+    width: Math.min(width, maxX - minX + Math.floor(width * 0.04)),
+    height: Math.min(height, maxY - minY + Math.floor(height * 0.02))
   };
 }
 
@@ -518,7 +537,6 @@ function preprocessCanvas(sourceCanvas) {
     const b = data[i + 2];
 
     let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
     gray = gray < 145 ? 0 : 255;
 
     data[i] = gray;
@@ -534,7 +552,7 @@ async function cropAlertCardFromImage(file) {
   const img = await loadImageFile(file);
 
   const baseCanvas = document.createElement("canvas");
-  const maxWidth = 900;
+  const maxWidth = 1000;
   const scale = Math.min(1, maxWidth / img.width);
 
   baseCanvas.width = Math.floor(img.width * scale);
@@ -556,10 +574,10 @@ async function cropAlertCardFromImage(file) {
     cropWidth = bounds.width;
     cropHeight = bounds.height;
   } else {
-    cropX = Math.floor(baseCanvas.width * 0.05);
-    cropY = Math.floor(baseCanvas.height * 0.38);
-    cropWidth = Math.floor(baseCanvas.width * 0.90);
-    cropHeight = Math.floor(baseCanvas.height * 0.22);
+    cropX = Math.floor(baseCanvas.width * 0.06);
+    cropY = Math.floor(baseCanvas.height * 0.30);
+    cropWidth = Math.floor(baseCanvas.width * 0.88);
+    cropHeight = Math.floor(baseCanvas.height * 0.18);
   }
 
   const cropCanvas = document.createElement("canvas");
@@ -617,8 +635,11 @@ function extractEventId(text) {
   return match ? match[0] : "";
 }
 
-function extractTime(text) {
-  const match = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+function extractTimeFromTopLine(text) {
+  const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const target = lines[0] || text;
+  const match = target.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+
   if (!match) {
     return "";
   }
@@ -666,18 +687,43 @@ function extractAddress(text) {
   return "";
 }
 
-function extractIncidentType(text) {
+function extractIncidentClass(text) {
   const upper = text.toUpperCase();
 
-  if (upper.includes("ALARM")) return "Alarm";
-  if (upper.includes("MVA")) return "MVA";
-  if (upper.includes("STRU")) return "STRU";
-  if (upper.includes("NSTR")) return "NSTR";
-  if (upper.includes("G&SC")) return "G&SC";
-  if (upper.includes("INCI")) return "INCI";
+  const known = ["MVA", "STRU", "ALAR", "ALARM", "NSTR", "INCI", "G&SC"];
+  for (const code of known) {
+    if (upper.includes(code)) {
+      return code === "ALARM" ? "ALAR" : code;
+    }
+  }
+
+  return "";
+}
+
+function extractIncidentType(text, incidentClass) {
+  if (incidentClass === "MVA") return "MVA";
+  if (incidentClass === "STRU") return "STRU";
+  if (incidentClass === "ALAR") return "Alarm";
+  if (incidentClass === "NSTR") return "NSTR";
+  if (incidentClass === "INCI") return "INCI";
+  if (incidentClass === "G&SC") return "G&SC";
+
+  const upper = text.toUpperCase();
   if (upper.includes("EMERGENCY")) return "Emergency";
 
   return "";
+}
+
+function extractOtherAgencies(text) {
+  const upper = text.toUpperCase();
+  const knownAgencies = ["AFP", "AV", "SES", "FRV", "VICPOL", "POLICE"];
+
+  const found = knownAgencies.filter(code => {
+    const pattern = new RegExp(`\\b${code}\\b`);
+    return pattern.test(upper);
+  });
+
+  return found.join(", ");
 }
 
 function applyOCRToIncidentFields(rawText) {
@@ -686,57 +732,46 @@ function applyOCRToIncidentFields(rawText) {
   const detectedCode = extractDetectedCode(text);
   const detectedCallType = detectCallTypeFromCode(detectedCode);
   const detectedEventId = extractEventId(text);
-  const detectedTime = extractTime(text);
+  const detectedTime = extractTimeFromTopLine(text);
   const detectedDate = extractDate(text);
   const detectedAddress = extractAddress(rawText);
-  const detectedIncidentType = extractIncidentType(text);
+  const detectedIncidentClass = extractIncidentClass(text);
+  const detectedIncidentType = extractIncidentType(text, detectedIncidentClass);
+  const detectedAgencies = extractOtherAgencies(text);
 
   const codeField = document.getElementById("detected-brigade-code");
   const callTypeField = document.getElementById("call-type");
   const eventIdField = document.getElementById("event-id");
   const typeField = document.getElementById("incident-type");
+  const classField = document.getElementById("incident-class");
   const addressField = document.getElementById("incident-address");
   const pagerDateField = document.getElementById("pager-date");
   const pagerTimeField = document.getElementById("pager-time");
+  const agenciesField = document.getElementById("other-agencies");
 
-  if (codeField) {
-    codeField.value = detectedCode;
-  }
-
-  if (callTypeField) {
-    callTypeField.value = detectedCallType;
-  }
-
-  if (eventIdField && detectedEventId) {
-    eventIdField.value = detectedEventId;
-  }
-
-  if (typeField && detectedIncidentType && !typeField.value.trim()) {
-    typeField.value = detectedIncidentType;
-  }
-
-  if (addressField && detectedAddress) {
-    addressField.value = detectedAddress;
-  }
-
-  if (pagerDateField && detectedDate) {
-    pagerDateField.value = detectedDate;
-  }
-
-  if (pagerTimeField && detectedTime) {
-    pagerTimeField.value = detectedTime;
-  }
+  if (codeField) codeField.value = detectedCode;
+  if (callTypeField) callTypeField.value = detectedCallType;
+  if (eventIdField && detectedEventId) eventIdField.value = detectedEventId;
+  if (classField && detectedIncidentClass) classField.value = detectedIncidentClass;
+  if (typeField && detectedIncidentType && !typeField.value.trim()) typeField.value = detectedIncidentType;
+  if (addressField && detectedAddress) addressField.value = detectedAddress;
+  if (pagerDateField && detectedDate) pagerDateField.value = detectedDate;
+  if (pagerTimeField && detectedTime) pagerTimeField.value = detectedTime;
+  if (agenciesField && detectedAgencies) agenciesField.value = detectedAgencies;
 
   updateEventIdPlaceholder();
   applyCallTypeUI();
+  applyIncidentClassUI();
 
   const summaryParts = [];
   if (detectedCode) summaryParts.push(`Code: ${detectedCode}`);
   if (detectedCallType) summaryParts.push(`Call Type: ${detectedCallType}`);
   if (detectedEventId) summaryParts.push(`Event ID: ${detectedEventId}`);
+  if (detectedIncidentClass) summaryParts.push(`Class: ${detectedIncidentClass}`);
   if (detectedDate) summaryParts.push("Date captured");
   if (detectedTime) summaryParts.push("Time captured");
   if (detectedAddress) summaryParts.push("Address filled");
+  if (detectedAgencies) summaryParts.push(`Agencies: ${detectedAgencies}`);
 
   if (summaryParts.length) {
     setSASStatus(`OCR complete. ${summaryParts.join(" | ")}`);
@@ -848,13 +883,8 @@ function formatGroupedApplianceSection() {
       const label = member.task || "Crew";
       let detail = `${label} – ${member.name || "Unnamed Member"}`;
 
-      if (member.baUsed) {
-        detail += " – BA Used";
-      }
-
-      if (member.injured) {
-        detail += " – Injured";
-      }
+      if (member.baUsed) detail += " – BA Used";
+      if (member.injured) detail += " – Injured";
 
       lines.push(detail);
     });
@@ -881,21 +911,11 @@ function formatStationAndDirectSection() {
 
     let line = displayName;
 
-    if (member.baUsed) {
-      line += " – BA Used";
-    }
+    if (member.baUsed) line += " – BA Used";
+    if (member.injured) line += " – Injured";
 
-    if (member.injured) {
-      line += " – Injured";
-    }
-
-    if (member.attribution === "Station") {
-      stationLines.push(line);
-    }
-
-    if (member.attribution === "Direct") {
-      directLines.push(line);
-    }
+    if (member.attribution === "Station") stationLines.push(line);
+    if (member.attribution === "Direct") directLines.push(line);
   });
 
   const output = [];
@@ -918,9 +938,15 @@ function buildReportText() {
   const firsCode = getFirsCode();
   const address = getAddress();
   const incidentType = getIncidentType();
+  const incidentClass = getIncidentClass();
   const callType = getFinalCallType();
+  const otherAgencies = getOtherAgencies();
   const oic = getCurrentOIC();
   const profile = getStoredProfile();
+
+  const vehicle1 = document.getElementById("vehicle-1")?.value.trim() || "";
+  const vehicle2 = document.getElementById("vehicle-2")?.value.trim() || "";
+  const vehicleNotes = document.getElementById("vehicle-notes")?.value.trim() || "";
 
   const applianceLines = formatGroupedApplianceSection();
   const stationDirectLines = formatStationAndDirectSection();
@@ -929,13 +955,25 @@ function buildReportText() {
     `EVENT ID: ${eventId || "Not entered"}`,
     `PAGER DATE: ${pagerDate || "Not entered"}`,
     `PAGER TIME: ${pagerTime || "Not entered"}`,
+    `INCIDENT CLASS: ${incidentClass || "Not entered"}`,
     `TYPE: ${incidentType || "Not entered"}`,
     `CALL TYPE: ${callType || "Not entered"}`,
-    `ADDRESS: ${address || "Not entered"}`
+    `ADDRESS: ${address || "Not entered"}`,
+    `OTHER AGENCIES: ${otherAgencies || "None recorded"}`
   ];
 
   if (callType !== "Support") {
     baseLines.push(`FIRS CODE: ${firsCode || "Not entered"}`);
+  }
+
+  if ((incidentClass || "").toUpperCase() === "MVA") {
+    baseLines.push(
+      "",
+      "VEHICLE REPORT",
+      `Vehicle 1: ${vehicle1 || "Not entered"}`,
+      `Vehicle 2: ${vehicle2 || "Not entered"}`,
+      `Other Vehicle / Notes: ${vehicleNotes || "Not entered"}`
+    );
   }
 
   baseLines.push(
@@ -1661,7 +1699,7 @@ function setMTDOIC(index, checked) {
   const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
 
   if (checked) {
-    if (existingConn !== -1 || (existingMTD !== -1 && existingMTD !== index)) {
+    if ((existingConn !== -1 && existingConn !== index) || existingMTD !== -1) {
       const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
       if (!replace) {
         renderMTDMembers();
