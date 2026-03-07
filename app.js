@@ -77,17 +77,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
   loadMembers();
   loadProfile();
+  renderPastEvents();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
   if (preview && previewField) {
     previewField.value = preview;
   }
+
+  updateEventIdPlaceholder();
 });
 
-/* Profile */
+/* Profile and settings */
 function getStoredProfile() {
   const raw = localStorage.getItem("turnoutProfile");
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function getStoredSettings() {
+  const raw = localStorage.getItem("turnoutSettings");
   if (!raw) {
     return null;
   }
@@ -210,7 +226,7 @@ function refreshOICHeaderFromSelections() {
   }
 }
 
-/* Validation helpers */
+/* Incident helpers */
 function getEventId() {
   return document.getElementById("event-id")?.value.trim() || "";
 }
@@ -227,6 +243,67 @@ function getPagerTime() {
   return document.getElementById("pager-time")?.value || "";
 }
 
+function getAddress() {
+  const field = document.getElementById("incident-address");
+  return field ? field.value.trim() : "";
+}
+
+function getIncidentType() {
+  const field = document.getElementById("incident-type");
+  return field ? field.value.trim() : "";
+}
+
+function getStreetNameFromAddress(address) {
+  if (!address) {
+    return "Unknown Street";
+  }
+
+  const cleaned = address.replace(/\s+/g, " ").trim();
+  const firstPart = cleaned.split(",")[0].trim();
+  const words = firstPart.split(" ").filter(Boolean);
+
+  if (words.length === 0) {
+    return "Unknown Street";
+  }
+
+  if (/^\d+[A-Za-z]?$/.test(words[0])) {
+    return words.slice(1).join(" ") || "Unknown Street";
+  }
+
+  return firstPart || "Unknown Street";
+}
+
+function formatDisplayDate(dateStr) {
+  if (!dateStr) {
+    return "Unknown Date";
+  }
+
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) {
+    return dateStr;
+  }
+
+  return `${parts[2]} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+}
+
+function updateEventIdPlaceholder() {
+  const pagerDate = getPagerDate();
+  const eventField = document.getElementById("event-id");
+
+  if (!eventField || !pagerDate) {
+    return;
+  }
+
+  const [year, month] = pagerDate.split("-");
+  if (!year || !month) {
+    return;
+  }
+
+  const shortYear = year.slice(2);
+  eventField.placeholder = `F${shortYear}${month}_____`;
+}
+
+/* Validation helpers */
 function getCurrentOIC() {
   const connOIC = selectedConnewarreMembers.find(member => member.isOIC);
   const mtdOIC = selectedMTDMembers.find(member => member.isOIC);
@@ -264,80 +341,132 @@ function isQuietHours() {
   return hour >= 22 || hour < 7;
 }
 
-/* Report formatting */
-function formatConnewarreLines() {
-  if (selectedConnewarreMembers.length === 0) {
-    return ["None recorded"];
-  }
+/* Report grouping helpers */
+function groupByAppliance(members, prefix) {
+  const groups = {};
 
-  return selectedConnewarreMembers.map(member => {
-    let line = `${member.name} – ${member.attribution || "No attribution"}`;
-
-    if (member.attribution === "Appliance") {
-      line += ` – ${member.appliance || "No appliance"}`;
+  members.forEach(member => {
+    if (member.attribution !== "Appliance") {
+      return;
     }
 
-    line += ` – ${member.task || "No task"}`;
+    let applianceName = member.appliance || "Unknown Appliance";
 
-    if (member.isOIC) {
-      line += " – OIC";
+    if (applianceName === "Other") {
+      applianceName = member.otherAppliance || "Other Appliance";
     }
 
-    return line;
+    const fullName = prefix ? `${prefix} ${applianceName}` : applianceName;
+
+    if (!groups[fullName]) {
+      groups[fullName] = [];
+    }
+
+    groups[fullName].push(member);
+  });
+
+  return groups;
+}
+
+function sortCrewByTask(members) {
+  const order = {
+    "Crew Leader": 1,
+    "Driver": 2,
+    "Crew": 3
+  };
+
+  return [...members].sort((a, b) => {
+    const aOrder = order[a.task] || 99;
+    const bOrder = order[b.task] || 99;
+    return aOrder - bOrder;
   });
 }
 
-function formatMTDLines() {
-  if (selectedMTDMembers.length === 0) {
-    return ["None recorded"];
-  }
+function formatGroupedApplianceSection() {
+  const lines = [];
 
-  return selectedMTDMembers.map(member => {
-    let line = `${member.name || "Unnamed Member"} (${member.brigade}) – ${member.attribution || "No attribution"}`;
+  const connGroups = groupByAppliance(selectedConnewarreMembers, "CONN");
+  const mtdGroups = groupByAppliance(selectedMTDMembers, "");
 
-    if (member.attribution === "Appliance") {
-      if (member.appliance === "Other") {
-        line += ` – ${member.otherAppliance || "Other appliance"}`;
-      } else {
-        line += ` – ${member.appliance || "MTD P/T"}`;
-      }
-    }
+  const mergedGroups = { ...connGroups, ...mtdGroups };
 
-    line += ` – ${member.task || "No task"}`;
+  Object.keys(mergedGroups).forEach(groupName => {
+    lines.push(groupName);
 
-    if (member.isOIC) {
-      line += " – OIC";
-    }
+    const sortedMembers = sortCrewByTask(mergedGroups[groupName]);
+    sortedMembers.forEach(member => {
+      const label = member.task || "Crew";
+      lines.push(`${label} – ${member.name || "Unnamed Member"}`);
+    });
 
-    return line;
+    lines.push("");
   });
+
+  return lines;
 }
 
+function formatStationAndDirectSection() {
+  const stationLines = [];
+  const directLines = [];
+
+  const allMembers = [
+    ...selectedConnewarreMembers,
+    ...selectedMTDMembers
+  ];
+
+  allMembers.forEach(member => {
+    const displayName = member.brigade && member.brigade !== "Connewarre"
+      ? `${member.name || "Unnamed Member"} (${member.brigade})`
+      : `${member.name || "Unnamed Member"}`;
+
+    if (member.attribution === "Station") {
+      stationLines.push(displayName);
+    }
+
+    if (member.attribution === "Direct") {
+      directLines.push(displayName);
+    }
+  });
+
+  const output = [];
+
+  output.push("STATION");
+  output.push(...(stationLines.length ? stationLines : ["None recorded"]));
+  output.push("");
+
+  output.push("DIRECT");
+  output.push(...(directLines.length ? directLines : ["None recorded"]));
+
+  return output;
+}
+
+/* Report building */
 function buildReportText() {
   const eventId = getEventId();
   const pagerDate = getPagerDate();
   const pagerTime = getPagerTime();
   const firsCode = getFirsCode();
+  const address = getAddress();
+  const incidentType = getIncidentType();
   const oic = getCurrentOIC();
   const profile = getStoredProfile();
 
-  const connLines = formatConnewarreLines();
-  const mtdLines = formatMTDLines();
+  const applianceLines = formatGroupedApplianceSection();
+  const stationDirectLines = formatStationAndDirectSection();
 
   return [
     `EVENT ID: ${eventId || "Not entered"}`,
     `PAGER DATE: ${pagerDate || "Not entered"}`,
     `PAGER TIME: ${pagerTime || "Not entered"}`,
     `FIRS CODE: ${firsCode || "Not entered"}`,
+    `TYPE: ${incidentType || "Not entered"}`,
+    `ADDRESS: ${address || "Not entered"}`,
     ``,
     `OIC: ${oic ? oic.name : "Not assigned"}`,
     `PHONE: ${oic ? (oic.phone || "______") : "______"}`,
     ``,
-    `CONNEWARRE RESPONSE`,
-    ...connLines,
-    ``,
-    `MTD RESPONSE`,
-    ...mtdLines,
+    ...applianceLines,
+    ...stationDirectLines,
     ``,
     `REPORT AUTHOR: ${profile?.name || "Not saved"}`,
     `CFA MEMBER NUMBER: ${profile?.number || "Not saved"}`,
@@ -378,16 +507,45 @@ function copyReport() {
     });
 }
 
+/* Past events */
+function buildPastEventTitle(reportText, eventId) {
+  const lines = reportText.split("\n");
+
+  const typeLine = lines.find(line => line.startsWith("TYPE: "));
+  const addressLine = lines.find(line => line.startsWith("ADDRESS: "));
+  const dateLine = lines.find(line => line.startsWith("PAGER DATE: "));
+
+  const type = typeLine ? typeLine.replace("TYPE: ", "").trim() : "Unknown Type";
+  const address = addressLine ? addressLine.replace("ADDRESS: ", "").trim() : "";
+  const date = dateLine ? dateLine.replace("PAGER DATE: ", "").trim() : "Unknown Date";
+
+  const streetName = getStreetNameFromAddress(address);
+
+  return `${type || "Unknown Type"} – ${streetName} – ${formatDisplayDate(date)}`;
+}
+
+function getSavedReports() {
+  try {
+    return JSON.parse(localStorage.getItem("savedReports") || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function saveReportLocally() {
   const report = buildReportText();
+  const eventId = getEventId();
+
   localStorage.setItem("savedReportPreview", report);
 
-  const savedReports = JSON.parse(localStorage.getItem("savedReports") || "[]");
-  savedReports.push({
+  const savedReports = getSavedReports();
+  savedReports.unshift({
     savedAt: new Date().toISOString(),
-    eventId: getEventId(),
+    eventId: eventId,
+    title: buildPastEventTitle(report, eventId),
     reportText: report
   });
+
   localStorage.setItem("savedReports", JSON.stringify(savedReports));
 
   const preview = document.getElementById("report-preview");
@@ -395,9 +553,79 @@ function saveReportLocally() {
     preview.value = report;
   }
 
+  renderPastEvents();
   alert("Report saved locally");
 }
 
+function renderPastEvents() {
+  const list = document.getElementById("past-events-list");
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = "";
+
+  const savedReports = getSavedReports();
+
+  if (savedReports.length === 0) {
+    list.innerHTML = "<p>No past events saved.</p>";
+    return;
+  }
+
+  savedReports.forEach((item, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "member-card";
+
+    wrapper.innerHTML = `
+      <h4>${item.title || "Untitled Report"}</h4>
+      <div>${item.eventId || "No Event ID"}</div>
+      <button type="button" onclick="loadSavedReport(${index})">Open Report</button>
+      <button type="button" onclick="emailSavedReportToSecretary(${index})">Email Secretary</button>
+    `;
+
+    list.appendChild(wrapper);
+  });
+}
+
+function loadSavedReport(index) {
+  const savedReports = getSavedReports();
+  const item = savedReports[index];
+
+  if (!item) {
+    return;
+  }
+
+  const preview = document.getElementById("report-preview");
+  if (preview) {
+    preview.value = item.reportText || "";
+  }
+
+  localStorage.setItem("savedReportPreview", item.reportText || "");
+  showTab("send-tab");
+}
+
+function emailSavedReportToSecretary(index) {
+  const savedReports = getSavedReports();
+  const item = savedReports[index];
+
+  if (!item) {
+    return;
+  }
+
+  const settings = getStoredSettings();
+  const secretaryEmail = settings?.secretaryEmail || "";
+
+  const subject = encodeURIComponent(`Turnout Report – ${item.title || item.eventId || "Saved Report"}`);
+  const body = encodeURIComponent(item.reportText || "");
+
+  const mailto = secretaryEmail
+    ? `mailto:${secretaryEmail}?subject=${subject}&body=${body}`
+    : `mailto:?subject=${subject}&body=${body}`;
+
+  window.location.href = mailto;
+}
+
+/* Send/save workflow */
 async function sendReportNow() {
   const report = buildReportText();
   const preview = document.getElementById("report-preview");
@@ -426,6 +654,24 @@ async function sendReportNow() {
   } catch {
     alert("Unable to send directly. Copy the report manually.");
   }
+}
+
+function emailCurrentReportToSecretary() {
+  const report = buildReportText();
+  const settings = getStoredSettings();
+  const secretaryEmail = settings?.secretaryEmail || "";
+
+  const eventId = getEventId();
+  const title = buildPastEventTitle(report, eventId);
+
+  const subject = encodeURIComponent(`Turnout Report – ${title} – ${eventId || "No Event ID"}`);
+  const body = encodeURIComponent(report);
+
+  const mailto = secretaryEmail
+    ? `mailto:${secretaryEmail}?subject=${subject}&body=${body}`
+    : `mailto:?subject=${subject}&body=${body}`;
+
+  window.location.href = mailto;
 }
 
 function quietHoursPrompt() {
