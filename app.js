@@ -76,6 +76,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   loadMembers();
+
+  const preview = localStorage.getItem("savedReportPreview");
+  const previewField = document.getElementById("report-preview");
+  if (preview && previewField) {
+    previewField.value = preview;
+  }
 });
 
 /* Shared OIC helpers */
@@ -118,6 +124,279 @@ function refreshOICHeaderFromSelections() {
     updateOICHeader(mtdOIC.name, mtdOIC.phone);
   } else {
     updateOICHeader("", "");
+  }
+}
+
+/* Validation helpers */
+function getEventId() {
+  return document.getElementById("event-id")?.value.trim() || "";
+}
+
+function getFirsCode() {
+  return document.getElementById("firs-code")?.value.trim() || "";
+}
+
+function getPagerDate() {
+  return document.getElementById("pager-date")?.value || "";
+}
+
+function getPagerTime() {
+  return document.getElementById("pager-time")?.value || "";
+}
+
+function getCurrentOIC() {
+  const connOIC = selectedConnewarreMembers.find(member => member.isOIC);
+  const mtdOIC = selectedMTDMembers.find(member => member.isOIC);
+  return connOIC || mtdOIC || null;
+}
+
+function hasAnyMembers() {
+  return selectedConnewarreMembers.length > 0 || selectedMTDMembers.length > 0;
+}
+
+function validateReportRequirements() {
+  if (!getEventId()) {
+    alert("Event ID required");
+    showTab("incident-tab");
+    return false;
+  }
+
+  if (!hasAnyMembers()) {
+    alert("At least one attending member is required");
+    showTab("connewarre-tab");
+    return false;
+  }
+
+  if (!getCurrentOIC()) {
+    alert("OIC required");
+    return false;
+  }
+
+  return true;
+}
+
+function isQuietHours() {
+  const now = new Date();
+  const hour = now.getHours();
+  return hour >= 22 || hour < 7;
+}
+
+/* Report formatting */
+function formatConnewarreLines() {
+  if (selectedConnewarreMembers.length === 0) {
+    return ["None recorded"];
+  }
+
+  return selectedConnewarreMembers.map(member => {
+    let line = `${member.name} – ${member.attribution || "No attribution"}`;
+
+    if (member.attribution === "Appliance") {
+      line += ` – ${member.appliance || "No appliance"}`;
+    }
+
+    line += ` – ${member.task || "No task"}`;
+
+    if (member.isOIC) {
+      line += " – OIC";
+    }
+
+    return line;
+  });
+}
+
+function formatMTDLines() {
+  if (selectedMTDMembers.length === 0) {
+    return ["None recorded"];
+  }
+
+  return selectedMTDMembers.map(member => {
+    let line = `${member.name || "Unnamed Member"} (${member.brigade}) – ${member.attribution || "No attribution"}`;
+
+    if (member.attribution === "Appliance") {
+      if (member.appliance === "Other") {
+        line += ` – ${member.otherAppliance || "Other appliance"}`;
+      } else {
+        line += ` – ${member.appliance || "MTD P/T"}`;
+      }
+    }
+
+    line += ` – ${member.task || "No task"}`;
+
+    if (member.isOIC) {
+      line += " – OIC";
+    }
+
+    return line;
+  });
+}
+
+function buildReportText() {
+  const eventId = getEventId();
+  const pagerDate = getPagerDate();
+  const pagerTime = getPagerTime();
+  const firsCode = getFirsCode();
+  const oic = getCurrentOIC();
+
+  const connLines = formatConnewarreLines();
+  const mtdLines = formatMTDLines();
+
+  return [
+    `EVENT ID: ${eventId || "Not entered"}`,
+    `PAGER DATE: ${pagerDate || "Not entered"}`,
+    `PAGER TIME: ${pagerTime || "Not entered"}`,
+    `FIRS CODE: ${firsCode || "Not entered"}`,
+    ``,
+    `OIC: ${oic ? oic.name : "Not assigned"}`,
+    `PHONE: ${oic ? (oic.phone || "______") : "______"}`,
+    ``,
+    `CONNEWARRE RESPONSE`,
+    ...connLines,
+    ``,
+    `MTD RESPONSE`,
+    ...mtdLines
+  ].join("\n");
+}
+
+function generateReport() {
+  if (!validateReportRequirements()) {
+    return;
+  }
+
+  const report = buildReportText();
+  const preview = document.getElementById("report-preview");
+
+  if (preview) {
+    preview.value = report;
+  }
+
+  localStorage.setItem("savedReportPreview", report);
+}
+
+function copyReport() {
+  const preview = document.getElementById("report-preview");
+
+  if (!preview || !preview.value.trim()) {
+    alert("Generate the report first.");
+    return;
+  }
+
+  navigator.clipboard.writeText(preview.value)
+    .then(() => {
+      alert("Report copied to clipboard");
+    })
+    .catch(() => {
+      alert("Copy failed");
+    });
+}
+
+function saveReportLocally() {
+  const report = buildReportText();
+  localStorage.setItem("savedReportPreview", report);
+
+  const savedReports = JSON.parse(localStorage.getItem("savedReports") || "[]");
+  savedReports.push({
+    savedAt: new Date().toISOString(),
+    eventId: getEventId(),
+    reportText: report
+  });
+  localStorage.setItem("savedReports", JSON.stringify(savedReports));
+
+  const preview = document.getElementById("report-preview");
+  if (preview) {
+    preview.value = report;
+  }
+
+  alert("Report saved locally");
+}
+
+async function sendReportNow() {
+  const report = buildReportText();
+  const preview = document.getElementById("report-preview");
+
+  if (preview) {
+    preview.value = report;
+  }
+
+  localStorage.setItem("savedReportPreview", report);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Turnout Report",
+        text: report
+      });
+      return;
+    } catch (err) {
+      console.log("Share cancelled or failed", err);
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(report);
+    alert("Report copied to clipboard. Paste it into your SMS or email.");
+  } catch {
+    alert("Unable to send directly. Copy the report manually.");
+  }
+}
+
+function quietHoursPrompt() {
+  const sendNow = confirm(
+    "Does this report need to be sent now?\n\n" +
+    "Yes = send now\n" +
+    "Cancel = choose Save to local or Return to report"
+  );
+
+  if (sendNow) {
+    sendReportNow();
+    return;
+  }
+
+  const saveLocal = confirm(
+    "Would you like to save this report to local storage?\n\n" +
+    "Yes = Save to local\n" +
+    "Cancel = Return to report"
+  );
+
+  if (saveLocal) {
+    saveReportLocally();
+  } else {
+    showTab("incident-tab");
+  }
+}
+
+function handleSendAction() {
+  if (!validateReportRequirements()) {
+    return;
+  }
+
+  generateReport();
+
+  if (isQuietHours()) {
+    quietHoursPrompt();
+    return;
+  }
+
+  const sendNow = confirm(
+    "Does this report need to be sent now?\n\n" +
+    "Yes = send now\n" +
+    "Cancel = choose Save to local or Return to report"
+  );
+
+  if (sendNow) {
+    sendReportNow();
+    return;
+  }
+
+  const saveLocal = confirm(
+    "Would you like to save this report to local storage?\n\n" +
+    "Yes = Save to local\n" +
+    "Cancel = Return to report"
+  );
+
+  if (saveLocal) {
+    saveReportLocally();
+  } else {
+    showTab("incident-tab");
   }
 }
 
@@ -549,103 +828,4 @@ function setMTDOIC(index, checked) {
   renderConnewarreMembers();
   renderMTDMembers();
   refreshOICHeaderFromSelections();
-}
-function formatConnewarreLines() {
-  if (selectedConnewarreMembers.length === 0) {
-    return ["None recorded"];
-  }
-
-  return selectedConnewarreMembers.map(member => {
-    let line = `${member.name} – ${member.attribution || "No attribution"}`;
-
-    if (member.attribution === "Appliance") {
-      line += ` – ${member.appliance || "No appliance"}`;
-    }
-
-    line += ` – ${member.task || "No task"}`;
-
-    if (member.isOIC) {
-      line += " – OIC";
-    }
-
-    return line;
-  });
-}
-
-function formatMTDLines() {
-  if (selectedMTDMembers.length === 0) {
-    return ["None recorded"];
-  }
-
-  return selectedMTDMembers.map(member => {
-    let line = `${member.name || "Unnamed Member"} (${member.brigade}) – ${member.attribution || "No attribution"}`;
-
-    if (member.attribution === "Appliance") {
-      if (member.appliance === "Other") {
-        line += ` – ${member.otherAppliance || "Other appliance"}`;
-      } else {
-        line += ` – ${member.appliance || "MTD P/T"}`;
-      }
-    }
-
-    line += ` – ${member.task || "No task"}`;
-
-    if (member.isOIC) {
-      line += " – OIC";
-    }
-
-    return line;
-  });
-}
-
-function generateReport() {
-  const pagerDate = document.getElementById("pager-date")?.value || "";
-  const pagerTime = document.getElementById("pager-time")?.value || "";
-  const firsCode = document.getElementById("firs-code")?.value || "";
-  const eventIdField = document.querySelector("#incident-tab input[type='text']:not(#firs-code)");
-  const eventId = eventIdField ? eventIdField.value : "";
-
-  const oicName = document.getElementById("oic-name")?.textContent || "Not assigned";
-  const oicPhone = document.getElementById("oic-phone")?.textContent || "______";
-
-  const connLines = formatConnewarreLines();
-  const mtdLines = formatMTDLines();
-
-  const report = [
-    `EVENT ID: ${eventId || "Not entered"}`,
-    `PAGER DATE: ${pagerDate || "Not entered"}`,
-    `PAGER TIME: ${pagerTime || "Not entered"}`,
-    `FIRS CODE: ${firsCode || "Not entered"}`,
-    ``,
-    `OIC: ${oicName}`,
-    `PHONE: ${oicPhone}`,
-    ``,
-    `CONNEWARRE RESPONSE`,
-    ...connLines,
-    ``,
-    `MTD RESPONSE`,
-    ...mtdLines
-  ].join("\n");
-
-  const preview = document.getElementById("report-preview");
-  if (preview) {
-    preview.value = report;
-  }
-}
-
-function copyReport() {
-  const preview = document.getElementById("report-preview");
-
-  if (!preview || !preview.value.trim()) {
-    alert("Generate the report first.");
-    return;
-  }
-
-  navigator.clipboard.writeText(preview.value)
-    .then(() => {
-      alert("Report copied to clipboard");
-    })
-    .catch(() => {
-      alert("Copy failed");
-    });
 }
