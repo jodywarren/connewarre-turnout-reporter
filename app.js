@@ -67,11 +67,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const pagerDate = document.getElementById("pager-date");
   const pagerTime = document.getElementById("pager-time");
 
-  if (pagerDate) {
+  if (pagerDate && !pagerDate.value) {
     pagerDate.value = date;
   }
 
-  if (pagerTime) {
+  if (pagerTime && !pagerTime.value) {
     pagerTime.value = now.toTimeString().slice(0, 5);
   }
 
@@ -297,13 +297,19 @@ function formatDisplayDate(dateStr) {
     return "Unknown Date";
   }
 
+  // Handles yyyy-mm-dd for storage/display conversion
   const parts = dateStr.split("-");
   if (parts.length !== 3) {
     return dateStr;
   }
 
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+  if (parts[0].length === 4) {
+    return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+  }
+
+  // fallback if already dd-mm-yyyy
+  return dateStr;
 }
 
 function updateEventIdPlaceholder() {
@@ -387,10 +393,11 @@ function bindSASUpload() {
     }
 
     previewSASImage(file);
-    setSASStatus("Reading screenshot...");
+    setSASStatus("Preparing screenshot...");
 
     try {
-      const text = await runSASOCR(file);
+      const croppedBlob = await cropAlertBoxFromImage(file);
+      const text = await runSASOCR(croppedBlob);
       applyOCRToIncidentFields(text);
     } catch (err) {
       console.log("OCR failed", err);
@@ -422,10 +429,58 @@ function setSASStatus(message) {
   }
 }
 
-async function runSASOCR(file) {
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function cropAlertBoxFromImage(file) {
+  const img = await loadImageFile(file);
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const width = img.width;
+  const height = img.height;
+
+  /*
+    Approx crop for the red alert box:
+    - starts below the top black panel
+    - excludes lower location card and map
+    Tuned for typical tall Android screenshot layout
+  */
+  const cropX = Math.floor(width * 0.06);
+  const cropY = Math.floor(height * 0.17);
+  const cropWidth = Math.floor(width * 0.88);
+  const cropHeight = Math.floor(height * 0.22);
+
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+
+  ctx.drawImage(
+    img,
+    cropX, cropY, cropWidth, cropHeight,
+    0, 0, cropWidth, cropHeight
+  );
+
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob), "image/png");
+  });
+}
+
+async function runSASOCR(imageBlob) {
   setSASStatus("Running OCR...");
 
-  const result = await Tesseract.recognize(file, "eng", {
+  const result = await Tesseract.recognize(imageBlob, "eng", {
     logger: m => {
       if (m.status === "recognizing text") {
         setSASStatus(`Running OCR... ${Math.round((m.progress || 0) * 100)}%`);
@@ -440,7 +495,10 @@ function normalizeOCRText(text) {
   return (text || "")
     .replace(/\r/g, "\n")
     .replace(/[|]/g, "I")
-    .replace(/\s+/g, " ")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\t/g, " ")
+    .replace(/[ ]{2,}/g, " ")
     .trim();
 }
 
@@ -450,9 +508,6 @@ function extractDetectedCode(text) {
   const match =
     upper.match(/\bCONN[1-9]\b/) ||
     upper.match(/\bCONN[1-9]/) ||
-    upper.match(/\bGROV[0-9]*\b/) ||
-    upper.match(/\bFRESH[0-9]*\b/) ||
-    upper.match(/\bFWC[0-9]*\b/) ||
     upper.match(/\b[A-Z]{4,6}[0-9]\b/);
 
   return match ? match[0] : "";
@@ -464,11 +519,70 @@ function extractEventId(text) {
   return match ? match[0] : "";
 }
 
+function extractTime(text) {
+  const match = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+  if (!match) {
+    return "";
+  }
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function extractDate(text) {
+  const match = text.match(/\b(\d{2})-(\d{2})-(\d{4})\b/);
+  if (!match) {
+    return "";
+  }
+
+  const dd = match[1];
+  const mm = match[2];
+  const yyyy = match[3];
+
+  // date input needs yyyy-mm-dd behind the scenes
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function extractAddress(text) {
+  const lines = (text || "")
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  // Prefer a line starting with a street number
+  const numberedLine = lines.find(line =>
+    /^\d+[A-Za-z]?\s+/.test(line)
+  );
+
+  if (numberedLine) {
+    return cleanAddressLine(numberedLine);
+  }
+
+  // fallback: search full text for number + road/locality pattern
+  const compact = lines.join(" ");
+  const match = compact.match(/\b\d+[A-Za-z]?\s+[A-Z0-9\s.'/-]{3,80}\b/i);
+  return match ? cleanAddressLine(match[0]) : "";
+}
+
+function cleanAddressLine(line) {
+  if (!line) {
+    return "";
+  }
+
+  let cleaned = line
+    .replace(/\/[A-Z\s]+$/i, "")
+    .replace(/\bM\s*\d+\b.*$/i, "")
+    .replace(/\([^)]+\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return cleaned;
+}
+
 function extractIncidentType(text) {
   const upper = text.toUpperCase();
 
-  if (upper.includes("MVA")) return "MVA";
+  if (upper.includes("EMERGENCY")) return "Emergency";
   if (upper.includes("ALARM")) return "Alarm";
+  if (upper.includes("MVA")) return "MVA";
   if (upper.includes("STRU")) return "STRU";
   if (upper.includes("NSTR")) return "NSTR";
   if (upper.includes("G&SC")) return "G&SC";
@@ -477,52 +591,16 @@ function extractIncidentType(text) {
   return "";
 }
 
-function extractAddress(text) {
-  const rawLines = (text || "")
-    .split(/\n+/)
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  const addressLine = rawLines.find(line =>
-    /^\d+[A-Za-z]?\s+.+/.test(line) &&
-    !/^F\d{9}/i.test(line) &&
-    !/^(CONN|GROV|FRESH|FWC)/i.test(line)
-  );
-
-  return addressLine || "";
-}
-
-function extractDateFromEventId(eventId) {
-  const match = (eventId || "").match(/^F(\d{2})(\d{2})/);
-  if (!match) {
-    return "";
-  }
-
-  const yy = match[1];
-  const mm = match[2];
-  const year = `20${yy}`;
-
-  if (parseInt(mm, 10) < 1 || parseInt(mm, 10) > 12) {
-    return "";
-  }
-
-  const existingDate = getPagerDate();
-  if (existingDate && existingDate.startsWith(`${year}-${mm}`)) {
-    return existingDate;
-  }
-
-  return `${year}-${mm}-01`;
-}
-
 function applyOCRToIncidentFields(rawText) {
   const text = normalizeOCRText(rawText);
 
   const detectedCode = extractDetectedCode(text);
   const detectedCallType = detectCallTypeFromCode(detectedCode);
   const detectedEventId = extractEventId(text);
-  const detectedIncidentType = extractIncidentType(text);
+  const detectedTime = extractTime(text);
+  const detectedDate = extractDate(text);
   const detectedAddress = extractAddress(rawText);
-  const inferredDate = extractDateFromEventId(detectedEventId);
+  const detectedIncidentType = extractIncidentType(text);
 
   const codeField = document.getElementById("detected-brigade-code");
   const callTypeField = document.getElementById("call-type");
@@ -530,6 +608,7 @@ function applyOCRToIncidentFields(rawText) {
   const typeField = document.getElementById("incident-type");
   const addressField = document.getElementById("incident-address");
   const pagerDateField = document.getElementById("pager-date");
+  const pagerTimeField = document.getElementById("pager-time");
 
   if (codeField) {
     codeField.value = detectedCode;
@@ -547,12 +626,16 @@ function applyOCRToIncidentFields(rawText) {
     typeField.value = detectedIncidentType;
   }
 
-  if (addressField && detectedAddress && !addressField.value.trim()) {
+  if (addressField && detectedAddress) {
     addressField.value = detectedAddress;
   }
 
-  if (pagerDateField && inferredDate && !pagerDateField.value) {
-    pagerDateField.value = inferredDate;
+  if (pagerDateField && detectedDate) {
+    pagerDateField.value = detectedDate;
+  }
+
+  if (pagerTimeField && detectedTime) {
+    pagerTimeField.value = detectedTime;
   }
 
   updateEventIdPlaceholder();
@@ -562,6 +645,8 @@ function applyOCRToIncidentFields(rawText) {
   if (detectedCode) summaryParts.push(`Code: ${detectedCode}`);
   if (detectedCallType) summaryParts.push(`Call Type: ${detectedCallType}`);
   if (detectedEventId) summaryParts.push(`Event ID: ${detectedEventId}`);
+  if (detectedDate) summaryParts.push(`Date captured`);
+  if (detectedTime) summaryParts.push(`Time captured`);
   if (detectedAddress) summaryParts.push(`Address filled`);
 
   setSASStatus(summaryParts.length ? `OCR complete. ${summaryParts.join(" | ")}` : "OCR complete, but little usable text was found.");
@@ -1081,6 +1166,7 @@ function addConnewarreMember(member) {
     ...member,
     attribution: "",
     appliance: "",
+    otherAppliance: "",
     task: "",
     isOIC: false,
     baUsed: false,
@@ -1483,7 +1569,7 @@ function setMTDOIC(index, checked) {
   const existingMTD = selectedMTDMembers.findIndex(m => m.isOIC);
 
   if (checked) {
-    if (existingConn !== -1 || (existingMTD !== -1 && existingMTD !== index)) {
+    if ((existingConn !== -1 && existingConn !== index) || existingMTD !== -1) {
       const replace = confirm("Only one OIC can be assigned. Replace the existing OIC?");
       if (!replace) {
         renderMTDMembers();
