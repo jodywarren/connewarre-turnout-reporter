@@ -1588,3 +1588,36 @@ function setMTDOIC(index, checked) {
   renderMTDMembers();
   refreshOICHeaderFromSelections();
 }
+/* SAS Upload Handler */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const upload = document.getElementById("sas-upload");
+  const previewWrap = document.getElementById("sas-preview-wrap");
+  const previewImg = document.getElementById("sas-preview");
+  const status = document.getElementById("sas-status");
+
+  if (!upload) return;
+
+  upload.addEventListener("change", event => {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    status.textContent = "Screenshot loaded";
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+      previewImg.src = e.target.result;
+      previewWrap.style.display = "block";
+
+    };
+
+    reader.readAsDataURL(file);
+
+  });
+
+});
