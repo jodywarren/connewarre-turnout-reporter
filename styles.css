@@ -110,6 +110,10 @@ button{
   margin-top: 6px;
 }
 
+.member-card button{
+  margin-top: 12px;
+}
+
 @media (max-width:600px){
   .tabs button{
     font-size: 13px;
