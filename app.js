@@ -12,7 +12,7 @@ function pasteFirs() {
 }
 
 function showTab(tab) {
-  const tabs = ["incident-tab", "connewarre-tab", "mtd-tab", "send-tab"];
+  const tabs = ["incident-tab", "connewarre-tab", "mtd-tab", "send-tab", "profile-tab"];
 
   tabs.forEach(id => {
     const section = document.getElementById(id);
@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   loadMembers();
+  loadProfile();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
@@ -83,6 +84,88 @@ document.addEventListener("DOMContentLoaded", function () {
     previewField.value = preview;
   }
 });
+
+/* Profile */
+function getStoredProfile() {
+  const raw = localStorage.getItem("turnoutProfile");
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveProfile() {
+  const profile = {
+    name: document.getElementById("profile-name")?.value.trim() || "",
+    number: document.getElementById("profile-number")?.value.trim() || "",
+    brigade: document.getElementById("profile-brigade")?.value || "",
+    role: document.getElementById("profile-role")?.value || ""
+  };
+
+  localStorage.setItem("turnoutProfile", JSON.stringify(profile));
+  updateProfileDisplays(profile);
+  alert("Profile saved");
+}
+
+function loadProfile() {
+  const profile = getStoredProfile();
+
+  if (!profile) {
+    updateProfileDisplays(null);
+    return;
+  }
+
+  const nameField = document.getElementById("profile-name");
+  const numberField = document.getElementById("profile-number");
+  const brigadeField = document.getElementById("profile-brigade");
+  const roleField = document.getElementById("profile-role");
+
+  if (nameField) nameField.value = profile.name || "";
+  if (numberField) numberField.value = profile.number || "";
+  if (brigadeField) brigadeField.value = profile.brigade || "";
+  if (roleField) roleField.value = profile.role || "";
+
+  updateProfileDisplays(profile);
+}
+
+function updateProfileDisplays(profile) {
+  const safeProfile = profile || {
+    name: "",
+    number: "",
+    brigade: "",
+    role: ""
+  };
+
+  const profileName = document.getElementById("profile-name-display");
+  const profileNumber = document.getElementById("profile-number-display");
+  const profileBrigade = document.getElementById("profile-brigade-display");
+  const profileRole = document.getElementById("profile-role-display");
+
+  const authorName = document.getElementById("author-name-display");
+  const authorNumber = document.getElementById("author-number-display");
+  const authorBrigade = document.getElementById("author-brigade-display");
+  const authorRole = document.getElementById("author-role-display");
+
+  const nameText = safeProfile.name || "Not saved";
+  const numberText = safeProfile.number || "Not saved";
+  const brigadeText = safeProfile.brigade || "Not saved";
+  const roleText = safeProfile.role || "Not saved";
+
+  if (profileName) profileName.textContent = nameText;
+  if (profileNumber) profileNumber.textContent = numberText;
+  if (profileBrigade) profileBrigade.textContent = brigadeText;
+  if (profileRole) profileRole.textContent = roleText;
+
+  if (authorName) authorName.textContent = nameText;
+  if (authorNumber) authorNumber.textContent = numberText;
+  if (authorBrigade) authorBrigade.textContent = brigadeText;
+  if (authorRole) authorRole.textContent = roleText;
+}
 
 /* Shared OIC helpers */
 function updateOICHeader(name, phone) {
@@ -236,6 +319,7 @@ function buildReportText() {
   const pagerTime = getPagerTime();
   const firsCode = getFirsCode();
   const oic = getCurrentOIC();
+  const profile = getStoredProfile();
 
   const connLines = formatConnewarreLines();
   const mtdLines = formatMTDLines();
@@ -253,7 +337,12 @@ function buildReportText() {
     ...connLines,
     ``,
     `MTD RESPONSE`,
-    ...mtdLines
+    ...mtdLines,
+    ``,
+    `REPORT AUTHOR: ${profile?.name || "Not saved"}`,
+    `CFA MEMBER NUMBER: ${profile?.number || "Not saved"}`,
+    `AUTHOR BRIGADE: ${profile?.brigade || "Not saved"}`,
+    `AUTHOR ROLE: ${profile?.role || "Not saved"}`
   ].join("\n");
 }
 
