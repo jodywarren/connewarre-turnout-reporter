@@ -1,16 +1,15 @@
-const CACHE_NAME = "turnout-reporter-v2";
+const CACHE_NAME = "turnout-reporter-v3";
 
 const FILES_TO_CACHE = [
-  "/cfa-turnout-reporter/",
-  "/cfa-turnout-reporter/index.html",
-  "/cfa-turnout-reporter/styles.css",
-  "/cfa-turnout-reporter/app.js",
-  "/cfa-turnout-reporter/members.json",
-  "/cfa-turnout-reporter/manifest.json"
+  "/connewarre-turnout-reporter/",
+  "/connewarre-turnout-reporter/index.html",
+  "/connewarre-turnout-reporter/styles.css",
+  "/connewarre-turnout-reporter/app.js",
+  "/connewarre-turnout-reporter/members.json",
+  "/connewarre-turnout-reporter/manifest.json"
 ];
 
 /* Install */
-
 self.addEventListener("install", event => {
   self.skipWaiting();
 
@@ -22,7 +21,6 @@ self.addEventListener("install", event => {
 });
 
 /* Activate */
-
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
@@ -40,15 +38,10 @@ self.addEventListener("activate", event => {
 });
 
 /* Fetch */
-
 self.addEventListener("fetch", event => {
   event.respondWith(
     fetch(event.request)
-      .then(response => {
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+      .then(response => response)
+      .catch(() => caches.match(event.request))
   );
 });
