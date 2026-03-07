@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
 <meta charset="UTF-8">
@@ -17,7 +16,7 @@
 
 <header>
 
-<p>Version: v99</p>
+<p>Version: v111</p>
 
 <div class="oic-header">
 OIC: <span id="oic-name" class="missing">Not assigned</span>
@@ -79,16 +78,35 @@ Phone: <span id="oic-phone">______</span>
 <label>Event ID</label>
 <input type="text" id="event-id">
 
+<label>Incident Class</label>
+<input type="text" id="incident-class" placeholder="e.g. ALAR, STRU, MVA">
+
 <label>Incident Type</label>
-<input type="text" id="incident-type" placeholder="e.g. Alarm, MVA, STRU">
+<input type="text" id="incident-type" placeholder="General incident description if needed">
 
 <label>Incident Address</label>
 <input type="text" id="incident-address" placeholder="Enter or edit incident address">
+
+<label>Other Agencies</label>
+<input type="text" id="other-agencies" placeholder="e.g. AV, SES, AFP">
 
 <div id="firs-code-wrap">
   <label>FIRS Code</label>
   <input type="text" id="firs-code">
   <button type="button" onclick="pasteFirs()">Paste</button>
+</div>
+
+<div id="mva-section" style="display:none;">
+  <h3>Vehicle Report</h3>
+
+  <label>Vehicle 1</label>
+  <input type="text" id="vehicle-1" placeholder="Vehicle 1 details">
+
+  <label>Vehicle 2</label>
+  <input type="text" id="vehicle-2" placeholder="Vehicle 2 details">
+
+  <label>Other Vehicle / Notes</label>
+  <input type="text" id="vehicle-notes" placeholder="Additional vehicle details">
 </div>
 
 </section>
