@@ -225,6 +225,8 @@ function renderConnewarreMembers() {
         <input type="checkbox" ${member.isOIC ? "checked" : ""} onchange="setConnewarreOIC(${index}, this.checked)">
         Incident OIC
       </label>
+
+      <button type="button" onclick="removeConnewarreMember(${index})">Remove Member</button>
     `;
 
     container.appendChild(card);
@@ -233,6 +235,18 @@ function renderConnewarreMembers() {
 
 function updateConnMember(index, field, value) {
   selectedConnewarreMembers[index][field] = value;
+  renderConnewarreMembers();
+}
+
+function removeConnewarreMember(index) {
+  const removedMember = selectedConnewarreMembers[index];
+
+  selectedConnewarreMembers.splice(index, 1);
+
+  if (removedMember && removedMember.isOIC) {
+    refreshOICHeaderFromSelections();
+  }
+
   renderConnewarreMembers();
 }
 
@@ -330,7 +344,6 @@ function searchMTDMembers() {
 }
 
 function addMTDMember(member, selectedBrigade) {
-  
   const alreadyAdded = selectedMTDMembers.some(
     m => m.id === member.id && m.brigade === selectedBrigade
   );
@@ -463,6 +476,8 @@ function renderMTDMembers() {
         <input type="checkbox" ${member.isOIC ? "checked" : ""} onchange="setMTDOIC(${index}, this.checked)">
         Incident OIC
       </label>
+
+      <button type="button" onclick="removeMTDMember(${index})">Remove Member</button>
     `;
 
     container.appendChild(card);
@@ -471,6 +486,18 @@ function renderMTDMembers() {
 
 function updateMTDMember(index, field, value) {
   selectedMTDMembers[index][field] = value;
+  renderMTDMembers();
+}
+
+function removeMTDMember(index) {
+  const removedMember = selectedMTDMembers[index];
+
+  selectedMTDMembers.splice(index, 1);
+
+  if (removedMember && removedMember.isOIC) {
+    refreshOICHeaderFromSelections();
+  }
+
   renderMTDMembers();
 }
 
