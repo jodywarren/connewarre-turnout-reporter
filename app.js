@@ -550,3 +550,102 @@ function setMTDOIC(index, checked) {
   renderMTDMembers();
   refreshOICHeaderFromSelections();
 }
+function formatConnewarreLines() {
+  if (selectedConnewarreMembers.length === 0) {
+    return ["None recorded"];
+  }
+
+  return selectedConnewarreMembers.map(member => {
+    let line = `${member.name} – ${member.attribution || "No attribution"}`;
+
+    if (member.attribution === "Appliance") {
+      line += ` – ${member.appliance || "No appliance"}`;
+    }
+
+    line += ` – ${member.task || "No task"}`;
+
+    if (member.isOIC) {
+      line += " – OIC";
+    }
+
+    return line;
+  });
+}
+
+function formatMTDLines() {
+  if (selectedMTDMembers.length === 0) {
+    return ["None recorded"];
+  }
+
+  return selectedMTDMembers.map(member => {
+    let line = `${member.name || "Unnamed Member"} (${member.brigade}) – ${member.attribution || "No attribution"}`;
+
+    if (member.attribution === "Appliance") {
+      if (member.appliance === "Other") {
+        line += ` – ${member.otherAppliance || "Other appliance"}`;
+      } else {
+        line += ` – ${member.appliance || "MTD P/T"}`;
+      }
+    }
+
+    line += ` – ${member.task || "No task"}`;
+
+    if (member.isOIC) {
+      line += " – OIC";
+    }
+
+    return line;
+  });
+}
+
+function generateReport() {
+  const pagerDate = document.getElementById("pager-date")?.value || "";
+  const pagerTime = document.getElementById("pager-time")?.value || "";
+  const firsCode = document.getElementById("firs-code")?.value || "";
+  const eventIdField = document.querySelector("#incident-tab input[type='text']:not(#firs-code)");
+  const eventId = eventIdField ? eventIdField.value : "";
+
+  const oicName = document.getElementById("oic-name")?.textContent || "Not assigned";
+  const oicPhone = document.getElementById("oic-phone")?.textContent || "______";
+
+  const connLines = formatConnewarreLines();
+  const mtdLines = formatMTDLines();
+
+  const report = [
+    `EVENT ID: ${eventId || "Not entered"}`,
+    `PAGER DATE: ${pagerDate || "Not entered"}`,
+    `PAGER TIME: ${pagerTime || "Not entered"}`,
+    `FIRS CODE: ${firsCode || "Not entered"}`,
+    ``,
+    `OIC: ${oicName}`,
+    `PHONE: ${oicPhone}`,
+    ``,
+    `CONNEWARRE RESPONSE`,
+    ...connLines,
+    ``,
+    `MTD RESPONSE`,
+    ...mtdLines
+  ].join("\n");
+
+  const preview = document.getElementById("report-preview");
+  if (preview) {
+    preview.value = report;
+  }
+}
+
+function copyReport() {
+  const preview = document.getElementById("report-preview");
+
+  if (!preview || !preview.value.trim()) {
+    alert("Generate the report first.");
+    return;
+  }
+
+  navigator.clipboard.writeText(preview.value)
+    .then(() => {
+      alert("Report copied to clipboard");
+    })
+    .catch(() => {
+      alert("Copy failed");
+    });
+}
