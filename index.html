@@ -16,7 +16,7 @@
 
 <header>
 
-<p>Version: v114</p>
+<p>Version: v116</p>
 
 <div class="oic-header">
 OIC: <span id="oic-name" class="missing">Not assigned</span>
@@ -79,7 +79,7 @@ Phone: <span id="oic-phone">______</span>
 <input type="text" id="event-id">
 
 <label>Incident Type</label>
-<input type="text" id="incident-type" placeholder="e.g. ALAR, STRU, MVA">
+<input type="text" id="incident-type" placeholder="e.g. ALAR, STRU, NONS, INCI, G&SC">
 
 <label>Incident Address</label>
 <input type="text" id="incident-address" placeholder="Enter or edit incident address">
@@ -90,53 +90,59 @@ Phone: <span id="oic-phone">______</span>
   <button type="button" onclick="pasteFirs()">Paste</button>
 </div>
 
-<h3>Other Agency</h3>
+<h3>Other Agencies</h3>
 
-<label>Agency</label>
-<select id="agency-type" onchange="updateAgencyFields()">
-  <option value="">Select agency</option>
-  <option value="Police">Police</option>
-  <option value="Ambulance">Ambulance</option>
-  <option value="SES">SES</option>
-  <option value="Council">Council</option>
-  <option value="Public rep">Public rep</option>
-  <option value="Other">Other</option>
-</select>
+<div id="agency-list">
+  <div class="agency-card">
+    <label>Agency</label>
+    <select class="agency-type" onchange="updateAgencyCard(this)">
+      <option value="">Select agency</option>
+      <option value="Police">Police</option>
+      <option value="Ambulance">Ambulance</option>
+      <option value="SES">SES</option>
+      <option value="Council">Council</option>
+      <option value="Public rep">Public rep</option>
+      <option value="Other">Other</option>
+    </select>
 
-<div id="agency-fields-wrap" style="display:none;">
+    <div class="agency-fields-wrap" style="display:none;">
 
-  <label>Name</label>
-  <input type="text" id="agency-name" placeholder="Enter name">
+      <label>Name</label>
+      <input type="text" class="agency-name" placeholder="Enter name">
 
-  <label>Contact Number</label>
-  <input type="text" id="agency-contact-number" placeholder="Enter contact number">
+      <label>Contact Number</label>
+      <input type="text" class="agency-contact-number" placeholder="Enter contact number">
 
-  <div id="agency-station-wrap" style="display:none;">
-    <label>Station</label>
-    <input type="text" id="agency-station" placeholder="Enter station">
+      <div class="agency-station-wrap" style="display:none;">
+        <label>Station</label>
+        <input type="text" class="agency-station" placeholder="Enter station">
+      </div>
+
+      <div class="agency-badge-wrap" style="display:none;">
+        <label>Badge</label>
+        <input type="text" class="agency-badge" placeholder="Enter badge number">
+      </div>
+
+      <div class="agency-headquarters-wrap" style="display:none;">
+        <label>Headquarters</label>
+        <input type="text" class="agency-headquarters" placeholder="Enter headquarters">
+      </div>
+
+      <div class="agency-office-wrap" style="display:none;">
+        <label>Office</label>
+        <input type="text" class="agency-office" placeholder="Enter office">
+      </div>
+
+      <div class="agency-other-wrap" style="display:none;">
+        <label>Other</label>
+        <input type="text" class="agency-other" placeholder="Enter other details">
+      </div>
+
+    </div>
   </div>
-
-  <div id="agency-badge-wrap" style="display:none;">
-    <label>Badge</label>
-    <input type="text" id="agency-badge" placeholder="Enter badge number">
-  </div>
-
-  <div id="agency-headquarters-wrap" style="display:none;">
-    <label>Headquarters</label>
-    <input type="text" id="agency-headquarters" placeholder="Enter headquarters">
-  </div>
-
-  <div id="agency-office-wrap" style="display:none;">
-    <label>Office</label>
-    <input type="text" id="agency-office" placeholder="Enter office">
-  </div>
-
-  <div id="agency-other-wrap" style="display:none;">
-    <label>Other</label>
-    <input type="text" id="agency-other" placeholder="Enter other details">
-  </div>
-
 </div>
+
+<button type="button" onclick="addAgencyCard()">Add Agency</button>
 
 <div id="mva-section" style="display:none;">
   <h3>Vehicle Report</h3>
@@ -283,9 +289,6 @@ Phone: <span id="oic-phone">______</span>
   <option value="Lieutenant">Lieutenant</option>
   <option value="Fire Fighter">Fire Fighter</option>
 </select>
-
-<label>Email Address</label>
-<input type="email" id="secretary-email" placeholder="Enter report email address">
 
 <button type="button" onclick="saveProfile()">Save Profile</button>
 
