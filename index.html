@@ -1,312 +1,164 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Turnout Reporter</title>
-
-<link rel="stylesheet" href="styles.css">
-<link rel="manifest" href="manifest.json">
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connewarre Turnout Reporter</title>
+  <meta name="theme-color" content="#b71c1c">
+  <meta name="description" content="Turnout Reporter for Connewarre Fire Brigade">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-
-<header>
-
-<p>Version: v116</p>
-
-<div class="oic-header">
-OIC: <span id="oic-name" class="missing">Not assigned</span>
-<br>
-Phone: <span id="oic-phone">______</span>
-</div>
-
-</header>
-
-<nav class="tabs">
-
-<button onclick="showTab('incident-tab')">Incident</button>
-<button onclick="showTab('connewarre-tab')">Connewarre</button>
-<button onclick="showTab('mtd-tab')">MTD</button>
-<button onclick="showTab('send-tab')">Send</button>
-<button onclick="showTab('profile-tab')">Profile</button>
-
-</nav>
-
-<main>
-
-<section id="incident-tab">
-
-<h2>Incident Details</h2>
-
-<h3>SAS Upload</h3>
-
-<label>Upload SAS Screenshot</label>
-<input type="file" id="sas-upload" accept="image/*">
-
-<div id="sas-preview-wrap" style="display:none;">
-  <h3>SAS Preview</h3>
-  <img id="sas-preview" alt="SAS screenshot preview" style="max-width:100%; border:1px solid #ccc; border-radius:4px;">
-</div>
-
-<div id="sas-status-wrap">
-  <p id="sas-status">No screenshot uploaded.</p>
-</div>
-
-<label>Detected Brigade Code</label>
-<input type="text" id="detected-brigade-code" placeholder="Will fill from SAS OCR or manual entry">
-
-<label>Call Type</label>
-<input type="text" id="call-type" readonly placeholder="Will be set from SAS code">
-
-<label>Manual Override</label>
-<select id="call-type-override">
-  <option value="">Use detected call type</option>
-  <option value="Primary">Primary</option>
-  <option value="Support">Support</option>
-</select>
-
-<label>Pager Date</label>
-<input type="date" id="pager-date" onchange="updateEventIdPlaceholder()">
-
-<label>Pager Time</label>
-<input type="time" id="pager-time">
-
-<label>Event ID</label>
-<input type="text" id="event-id">
-
-<label>Incident Type</label>
-<input type="text" id="incident-type" placeholder="e.g. ALAR, STRU, NONS, INCI, G&SC">
-
-<label>Incident Address</label>
-<input type="text" id="incident-address" placeholder="Enter or edit incident address">
-
-<div id="firs-code-wrap">
-  <label>FIRS Code</label>
-  <input type="text" id="firs-code">
-  <button type="button" onclick="pasteFirs()">Paste</button>
-</div>
-
-<h3>Other Agencies</h3>
-
-<div id="agency-list">
-  <div class="agency-card">
-    <label>Agency</label>
-    <select class="agency-type" onchange="updateAgencyCard(this)">
-      <option value="">Select agency</option>
-      <option value="Police">Police</option>
-      <option value="Ambulance">Ambulance</option>
-      <option value="SES">SES</option>
-      <option value="Council">Council</option>
-      <option value="Public rep">Public rep</option>
-      <option value="Other">Other</option>
-    </select>
-
-    <div class="agency-fields-wrap" style="display:none;">
-
-      <label>Name</label>
-      <input type="text" class="agency-name" placeholder="Enter name">
-
-      <label>Contact Number</label>
-      <input type="text" class="agency-contact-number" placeholder="Enter contact number">
-
-      <div class="agency-station-wrap" style="display:none;">
-        <label>Station</label>
-        <input type="text" class="agency-station" placeholder="Enter station">
-      </div>
-
-      <div class="agency-badge-wrap" style="display:none;">
-        <label>Badge</label>
-        <input type="text" class="agency-badge" placeholder="Enter badge number">
-      </div>
-
-      <div class="agency-headquarters-wrap" style="display:none;">
-        <label>Headquarters</label>
-        <input type="text" class="agency-headquarters" placeholder="Enter headquarters">
-      </div>
-
-      <div class="agency-office-wrap" style="display:none;">
-        <label>Office</label>
-        <input type="text" class="agency-office" placeholder="Enter office">
-      </div>
-
-      <div class="agency-other-wrap" style="display:none;">
-        <label>Other</label>
-        <input type="text" class="agency-other" placeholder="Enter other details">
-      </div>
-
+  <header class="site-header">
+    <div class="wrap">
+      <h1>Connewarre Turnout Reporter</h1>
+      <p class="subtitle">Incident capture, OCR review and turnout reporting</p>
     </div>
-  </div>
-</div>
+  </header>
 
-<button type="button" onclick="addAgencyCard()">Add Agency</button>
+  <main class="wrap">
+    <form id="turnout-form" novalidate>
+      <section class="card">
+        <h2>SAS Pager Screenshot</h2>
 
-<div id="mva-section" style="display:none;">
-  <h3>Vehicle Report</h3>
+        <div class="field">
+          <label for="imageUpload">Upload screenshot</label>
+          <input id="imageUpload" type="file" accept="image/*">
+        </div>
 
-  <div id="vehicle-list">
-    <div class="vehicle-card">
-      <label>Make</label>
-      <input type="text" class="vehicle-make" placeholder="Vehicle make">
+        <div class="button-row">
+          <button id="parseButton" type="button">Run OCR</button>
+          <button id="resetButton" type="button">Reset</button>
+        </div>
 
-      <label>Model</label>
-      <input type="text" class="vehicle-model" placeholder="Vehicle model">
+        <div class="preview-wrap">
+          <img id="previewImage" alt="Screenshot preview" hidden>
+        </div>
 
-      <label>Rego</label>
-      <input type="text" class="vehicle-rego" placeholder="Registration">
+        <div id="statusMessage" class="status" data-level="info">Ready</div>
+      </section>
 
-      <label>State</label>
-      <select class="vehicle-state">
-        <option value="">Select state</option>
-        <option value="VIC">VIC</option>
-        <option value="NSW">NSW</option>
-        <option value="QLD">QLD</option>
-        <option value="SA">SA</option>
-        <option value="WA">WA</option>
-        <option value="TAS">TAS</option>
-        <option value="NT">NT</option>
-        <option value="ACT">ACT</option>
-      </select>
+      <section class="card">
+        <h2>Incident Details</h2>
 
-      <label>Driver Name</label>
-      <input type="text" class="vehicle-driver-name" placeholder="Driver name">
+        <div class="grid two">
+          <div class="field">
+            <label for="incidentDate">Pager date</label>
+            <input id="incidentDate" type="text" placeholder="e.g. 07/03/2026">
+          </div>
 
-      <label>Driver Contact Number</label>
-      <input type="text" class="vehicle-driver-contact" placeholder="Driver contact number">
-    </div>
-  </div>
+          <div class="field">
+            <label for="incidentTime">Pager time</label>
+            <input id="incidentTime" type="text" placeholder="e.g. 18:42">
+          </div>
+        </div>
 
-  <button type="button" onclick="addVehicleCard()">Add Vehicle</button>
-</div>
+        <div class="field">
+          <label for="incidentAddress">Address</label>
+          <input id="incidentAddress" type="text" placeholder="Street address from pager message">
+        </div>
 
-<button type="button" onclick="showTab('connewarre-tab')">Next → Connewarre Members</button>
+        <div class="field">
+          <label for="incidentSuburb">Suburb</label>
+          <input id="incidentSuburb" type="text" placeholder="Suburb">
+        </div>
 
-</section>
+        <div class="grid two">
+          <div class="field">
+            <label for="incidentType">Incident type</label>
+            <select id="incidentType">
+              <option value="">Select type</option>
+              <option value="ALAR">ALAR</option>
+              <option value="STRU">STRU</option>
+              <option value="NONS">NONS</option>
+              <option value="INCI">INCI</option>
+              <option value="G&amp;SC">G&amp;SC</option>
+            </select>
+          </div>
 
-<section id="connewarre-tab" style="display:none">
+          <div class="field">
+            <label for="codeLevel">Code level</label>
+            <select id="codeLevel">
+              <option value="">Select code</option>
+              <option value="C1">C1</option>
+              <option value="C3">C3</option>
+            </select>
+          </div>
+        </div>
 
-<h2>Connewarre Response</h2>
+        <div class="grid two">
+          <div class="field">
+            <label for="incidentClass">Incident class</label>
+            <input id="incidentClass" type="text" placeholder="Auto-built or manual override">
+          </div>
 
-<label>Search member</label>
-<input type="text" id="conn-search" placeholder="Type member name..." oninput="searchConnewarreMembers()">
+          <div class="field checkbox-field">
+            <label for="isMVA">Treat as MVA</label>
+            <input id="isMVA" type="checkbox">
+          </div>
+        </div>
 
-<div id="conn-results"></div>
+        <div class="grid two">
+          <div class="field">
+            <label for="callSign">Call sign</label>
+            <input id="callSign" type="text" placeholder="Appliance or call sign">
+          </div>
 
-<h3>Selected Members</h3>
-<div id="conn-selected"></div>
+          <div class="field">
+            <label for="jobNumber">Job / Event number</label>
+            <input id="jobNumber" type="text" placeholder="Job or event number">
+          </div>
+        </div>
+      </section>
 
-<button type="button" onclick="showTab('mtd-tab')">Next → MTD Response</button>
+      <section id="mvaSection" class="card" hidden>
+        <h2>MVA Section</h2>
+        <p>This section is shown when the incident is treated as an MVA.</p>
+        <div class="field">
+          <label for="mvaNotes">MVA notes</label>
+          <textarea id="mvaNotes" rows="4" placeholder="Vehicle and casualty details"></textarea>
+        </div>
+      </section>
 
-</section>
+      <section class="card">
+        <div class="section-heading">
+          <h2>Agencies</h2>
+          <button id="addAgencyButton" type="button">Add agency</button>
+        </div>
+        <div id="agencyContainer"></div>
+      </section>
 
-<section id="mtd-tab" style="display:none">
+      <section class="card">
+        <h2>Validation</h2>
+        <ul id="validationList" class="validation-list">
+          <li class="success">No validation issues detected.</li>
+        </ul>
+      </section>
 
-<h2>MTD Response</h2>
+      <section class="card">
+        <h2>OCR Text</h2>
+        <div class="field">
+          <label for="rawText">Raw OCR output</label>
+          <textarea id="rawText" rows="10" placeholder="OCR text will appear here"></textarea>
+        </div>
+      </section>
 
-<label>Brigade</label>
-<select id="mtd-brigade" onchange="clearMTDSearch()">
-  <option value="">Select brigade</option>
-  <option value="Connewarre">Connewarre</option>
-  <option value="Grovedale">Grovedale</option>
-  <option value="Freshwater Creek">Freshwater Creek</option>
-  <option value="Other">Other</option>
-</select>
+      <section class="card">
+        <h2>Debug</h2>
+        <pre id="debugBox" class="debug-box"></pre>
+      </section>
 
-<div id="mtd-other-brigade-wrap" style="display:none;">
-  <label>Other Brigade</label>
-  <input type="text" id="mtd-other-brigade" placeholder="Enter brigade name">
-</div>
+      <section class="card">
+        <h2>Submit</h2>
+        <div class="button-row">
+          <button id="submitButton" type="submit">Validate and Build Payload</button>
+        </div>
+      </section>
+    </form>
+  </main>
 
-<label>Search member</label>
-<input type="text"
-       id="mtd-search"
-       placeholder="Type member name..."
-       oninput="searchMTDMembers()">
-
-<div id="mtd-results"></div>
-
-<h3>Selected Members</h3>
-<div id="mtd-selected"></div>
-
-<button type="button" onclick="showTab('send-tab')">Next → Send Report</button>
-
-</section>
-
-<section id="send-tab" style="display:none">
-
-<h2>Send Report</h2>
-
-<button type="button" onclick="sendAsSMS()">Send as SMS</button>
-<button type="button" onclick="sendAsEmail()">Send as Email</button>
-<button type="button" onclick="generateReport()">Generate Report</button>
-
-<h3>Author Details</h3>
-<div id="author-summary">
-  <p>Name: <span id="author-name-display">Not saved</span></p>
-  <p>CFA Member Number: <span id="author-number-display">Not saved</span></p>
-  <p>Phone Number: <span id="author-phone-display">Not saved</span></p>
-  <p>Brigade: <span id="author-brigade-display">Not saved</span></p>
-  <p>Role: <span id="author-role-display">Not saved</span></p>
-</div>
-
-<h3>Report Preview</h3>
-<textarea id="report-preview" rows="20" readonly></textarea>
-
-<h3>Past Events</h3>
-<div id="past-events-list"></div>
-
-</section>
-
-<section id="profile-tab" style="display:none">
-
-<h2>Profile</h2>
-
-<label>Name</label>
-<input type="text" id="profile-name" placeholder="Enter your name">
-
-<label>CFA Member Number</label>
-<input type="text" id="profile-number" placeholder="Enter CFA member number">
-
-<label>Phone Number</label>
-<input type="text" id="profile-phone" placeholder="Enter your phone number">
-
-<label>Brigade</label>
-<select id="profile-brigade">
-  <option value="">Select brigade</option>
-  <option value="Connewarre">Connewarre</option>
-  <option value="Grovedale">Grovedale</option>
-  <option value="Freshwater Creek">Freshwater Creek</option>
-  <option value="Other">Other</option>
-</select>
-
-<label>Role</label>
-<select id="profile-role">
-  <option value="">Select role</option>
-  <option value="Captain">Captain</option>
-  <option value="Lieutenant">Lieutenant</option>
-  <option value="Fire Fighter">Fire Fighter</option>
-</select>
-
-<button type="button" onclick="saveProfile()">Save Profile</button>
-
-<h3>Saved Profile</h3>
-<div id="profile-summary">
-  <p>Name: <span id="profile-name-display">Not saved</span></p>
-  <p>CFA Member Number: <span id="profile-number-display">Not saved</span></p>
-  <p>Phone Number: <span id="profile-phone-display">Not saved</span></p>
-  <p>Brigade: <span id="profile-brigade-display">Not saved</span></p>
-  <p>Role: <span id="profile-role-display">Not saved</span></p>
-</div>
-
-</section>
-
-</main>
-
-<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="app.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
