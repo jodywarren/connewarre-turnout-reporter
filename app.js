@@ -330,6 +330,7 @@ function searchMTDMembers() {
 }
 
 function addMTDMember(member, selectedBrigade) {
+  
   const alreadyAdded = selectedMTDMembers.some(
     m => m.id === member.id && m.brigade === selectedBrigade
   );
