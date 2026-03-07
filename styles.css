@@ -42,12 +42,22 @@ main{
   padding: 10px;
 }
 
+section{
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
 h2{
-  margin-top: 10px;
+  margin-top: 0;
+  margin-bottom: 12px;
 }
 
 h3{
-  margin-top: 16px;
+  margin-top: 18px;
+  margin-bottom: 8px;
 }
 
 label{
@@ -57,7 +67,8 @@ label{
 }
 
 input,
-select{
+select,
+textarea{
   width: 100%;
   padding: 10px;
   margin-top: 4px;
@@ -66,6 +77,13 @@ select{
   font-size: 16px;
   background: #fff;
   box-sizing: border-box;
+}
+
+textarea{
+  min-height: 280px;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 button{
@@ -80,7 +98,8 @@ button{
 #conn-results,
 #conn-selected,
 #mtd-results,
-#mtd-selected{
+#mtd-selected,
+#past-events-list{
   margin-top: 10px;
 }
 
@@ -112,9 +131,35 @@ button{
 
 .member-card button{
   margin-top: 12px;
+  margin-right: 8px;
 }
 
-@media (max-width:600px){
+#author-summary,
+#profile-summary{
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+#author-summary p,
+#profile-summary p{
+  margin: 6px 0;
+}
+
+#send-tab button{
+  margin-right: 8px;
+}
+
+#past-events-list .member-card div{
+  margin-top: 4px;
+}
+
+#past-events-list .member-card button{
+  margin-right: 8px;
+}
+
+@media (max-width: 600px){
   .tabs button{
     font-size: 13px;
     padding: 10px;
@@ -122,5 +167,21 @@ button{
 
   header{
     font-size: 14px;
+  }
+
+  section{
+    padding: 10px;
+  }
+
+  button{
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .member-card button,
+  #send-tab button,
+  #past-events-list .member-card button{
+    width: 100%;
+    margin-right: 0;
   }
 }
