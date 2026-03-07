@@ -105,13 +105,13 @@ function getStoredProfile() {
 function getStoredSettings() {
   const raw = localStorage.getItem("turnoutSettings");
   if (!raw) {
-    return null;
+    return { secretaryEmail: "" };
   }
 
   try {
     return JSON.parse(raw);
   } catch {
-    return null;
+    return { secretaryEmail: "" };
   }
 }
 
@@ -123,38 +123,51 @@ function saveProfile() {
     role: document.getElementById("profile-role")?.value || ""
   };
 
+  const settings = {
+    secretaryEmail: document.getElementById("secretary-email")?.value.trim() || ""
+  };
+
   localStorage.setItem("turnoutProfile", JSON.stringify(profile));
-  updateProfileDisplays(profile);
+  localStorage.setItem("turnoutSettings", JSON.stringify(settings));
+
+  updateProfileDisplays(profile, settings);
   alert("Profile saved");
 }
 
 function loadProfile() {
   const profile = getStoredProfile();
-
-  if (!profile) {
-    updateProfileDisplays(null);
-    return;
-  }
+  const settings = getStoredSettings();
 
   const nameField = document.getElementById("profile-name");
   const numberField = document.getElementById("profile-number");
   const brigadeField = document.getElementById("profile-brigade");
   const roleField = document.getElementById("profile-role");
+  const secretaryEmailField = document.getElementById("secretary-email");
 
-  if (nameField) nameField.value = profile.name || "";
-  if (numberField) numberField.value = profile.number || "";
-  if (brigadeField) brigadeField.value = profile.brigade || "";
-  if (roleField) roleField.value = profile.role || "";
+  if (profile) {
+    if (nameField) nameField.value = profile.name || "";
+    if (numberField) numberField.value = profile.number || "";
+    if (brigadeField) brigadeField.value = profile.brigade || "";
+    if (roleField) roleField.value = profile.role || "";
+  }
 
-  updateProfileDisplays(profile);
+  if (secretaryEmailField) {
+    secretaryEmailField.value = settings.secretaryEmail || "";
+  }
+
+  updateProfileDisplays(profile, settings);
 }
 
-function updateProfileDisplays(profile) {
+function updateProfileDisplays(profile, settings) {
   const safeProfile = profile || {
     name: "",
     number: "",
     brigade: "",
     role: ""
+  };
+
+  const safeSettings = settings || {
+    secretaryEmail: ""
   };
 
   const profileName = document.getElementById("profile-name-display");
@@ -181,6 +194,11 @@ function updateProfileDisplays(profile) {
   if (authorNumber) authorNumber.textContent = numberText;
   if (authorBrigade) authorBrigade.textContent = brigadeText;
   if (authorRole) authorRole.textContent = roleText;
+
+  const secretaryLabel = document.getElementById("secretary-email-display");
+  if (secretaryLabel) {
+    secretaryLabel.textContent = safeSettings.secretaryEmail || "Not saved";
+  }
 }
 
 /* Shared OIC helpers */
@@ -244,13 +262,11 @@ function getPagerTime() {
 }
 
 function getAddress() {
-  const field = document.getElementById("incident-address");
-  return field ? field.value.trim() : "";
+  return document.getElementById("incident-address")?.value.trim() || "";
 }
 
 function getIncidentType() {
-  const field = document.getElementById("incident-type");
-  return field ? field.value.trim() : "";
+  return document.getElementById("incident-type")?.value.trim() || "";
 }
 
 function getStreetNameFromAddress(address) {
@@ -283,7 +299,8 @@ function formatDisplayDate(dateStr) {
     return dateStr;
   }
 
-  return `${parts[2]} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
 }
 
 function updateEventIdPlaceholder() {
@@ -390,7 +407,16 @@ function formatGroupedApplianceSection() {
 
   const mergedGroups = { ...connGroups, ...mtdGroups };
 
-  Object.keys(mergedGroups).forEach(groupName => {
+  const groupNames = Object.keys(mergedGroups);
+
+  if (groupNames.length === 0) {
+    lines.push("APPLIANCE CREWS");
+    lines.push("None recorded");
+    lines.push("");
+    return lines;
+  }
+
+  groupNames.forEach(groupName => {
     lines.push(groupName);
 
     const sortedMembers = sortCrewByTask(mergedGroups[groupName]);
@@ -657,6 +683,10 @@ async function sendReportNow() {
 }
 
 function emailCurrentReportToSecretary() {
+  if (!validateReportRequirements()) {
+    return;
+  }
+
   const report = buildReportText();
   const settings = getStoredSettings();
   const secretaryEmail = settings?.secretaryEmail || "";
