@@ -78,6 +78,8 @@ document.addEventListener("DOMContentLoaded", function () {
   loadMembers();
   loadProfile();
   renderPastEvents();
+  bindSASUpload();
+  bindCallTypeOverride();
 
   const preview = localStorage.getItem("savedReportPreview");
   const previewField = document.getElementById("report-preview");
@@ -86,6 +88,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   updateEventIdPlaceholder();
+  applyCallTypeUI();
 });
 
 /* Profile and settings */
@@ -320,6 +323,250 @@ function updateEventIdPlaceholder() {
   eventField.placeholder = `F${shortYear}${month}_____`;
 }
 
+/* Call type helpers */
+function detectCallTypeFromCode(code) {
+  const clean = (code || "").toUpperCase().trim();
+
+  if (/^CONN[1-9]\b/.test(clean) || /^CONN[1-9]/.test(clean)) {
+    return "Primary";
+  }
+
+  if (clean) {
+    return "Support";
+  }
+
+  return "";
+}
+
+function getFinalCallType() {
+  const override = document.getElementById("call-type-override")?.value || "";
+  if (override) {
+    return override;
+  }
+
+  return document.getElementById("call-type")?.value || "";
+}
+
+function applyCallTypeUI() {
+  const finalType = getFinalCallType();
+  const firsWrap = document.getElementById("firs-code-wrap");
+
+  if (!firsWrap) {
+    return;
+  }
+
+  if (finalType === "Support") {
+    firsWrap.style.display = "none";
+  } else {
+    firsWrap.style.display = "block";
+  }
+}
+
+function bindCallTypeOverride() {
+  const override = document.getElementById("call-type-override");
+  if (!override) {
+    return;
+  }
+
+  override.addEventListener("change", () => {
+    applyCallTypeUI();
+  });
+}
+
+/* SAS upload and OCR */
+function bindSASUpload() {
+  const upload = document.getElementById("sas-upload");
+  if (!upload) {
+    return;
+  }
+
+  upload.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    previewSASImage(file);
+    setSASStatus("Reading screenshot...");
+
+    try {
+      const text = await runSASOCR(file);
+      applyOCRToIncidentFields(text);
+    } catch (err) {
+      console.log("OCR failed", err);
+      setSASStatus("OCR failed. Enter details manually.");
+    }
+  });
+}
+
+function previewSASImage(file) {
+  const previewWrap = document.getElementById("sas-preview-wrap");
+  const previewImg = document.getElementById("sas-preview");
+
+  if (!previewWrap || !previewImg) {
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    previewImg.src = e.target.result;
+    previewWrap.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+function setSASStatus(message) {
+  const status = document.getElementById("sas-status");
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+async function runSASOCR(file) {
+  setSASStatus("Running OCR...");
+
+  const result = await Tesseract.recognize(file, "eng", {
+    logger: m => {
+      if (m.status === "recognizing text") {
+        setSASStatus(`Running OCR... ${Math.round((m.progress || 0) * 100)}%`);
+      }
+    }
+  });
+
+  return result.data.text || "";
+}
+
+function normalizeOCRText(text) {
+  return (text || "")
+    .replace(/\r/g, "\n")
+    .replace(/[|]/g, "I")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractDetectedCode(text) {
+  const upper = text.toUpperCase();
+
+  const match =
+    upper.match(/\bCONN[1-9]\b/) ||
+    upper.match(/\bCONN[1-9]/) ||
+    upper.match(/\bGROV[0-9]*\b/) ||
+    upper.match(/\bFRESH[0-9]*\b/) ||
+    upper.match(/\bFWC[0-9]*\b/) ||
+    upper.match(/\b[A-Z]{4,6}[0-9]\b/);
+
+  return match ? match[0] : "";
+}
+
+function extractEventId(text) {
+  const upper = text.toUpperCase();
+  const match = upper.match(/\bF\d{9}\b/);
+  return match ? match[0] : "";
+}
+
+function extractIncidentType(text) {
+  const upper = text.toUpperCase();
+
+  if (upper.includes("MVA")) return "MVA";
+  if (upper.includes("ALARM")) return "Alarm";
+  if (upper.includes("STRU")) return "STRU";
+  if (upper.includes("NSTR")) return "NSTR";
+  if (upper.includes("G&SC")) return "G&SC";
+  if (upper.includes("INCI")) return "INCI";
+
+  return "";
+}
+
+function extractAddress(text) {
+  const rawLines = (text || "")
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const addressLine = rawLines.find(line =>
+    /^\d+[A-Za-z]?\s+.+/.test(line) &&
+    !/^F\d{9}/i.test(line) &&
+    !/^(CONN|GROV|FRESH|FWC)/i.test(line)
+  );
+
+  return addressLine || "";
+}
+
+function extractDateFromEventId(eventId) {
+  const match = (eventId || "").match(/^F(\d{2})(\d{2})/);
+  if (!match) {
+    return "";
+  }
+
+  const yy = match[1];
+  const mm = match[2];
+  const year = `20${yy}`;
+
+  if (parseInt(mm, 10) < 1 || parseInt(mm, 10) > 12) {
+    return "";
+  }
+
+  const existingDate = getPagerDate();
+  if (existingDate && existingDate.startsWith(`${year}-${mm}`)) {
+    return existingDate;
+  }
+
+  return `${year}-${mm}-01`;
+}
+
+function applyOCRToIncidentFields(rawText) {
+  const text = normalizeOCRText(rawText);
+
+  const detectedCode = extractDetectedCode(text);
+  const detectedCallType = detectCallTypeFromCode(detectedCode);
+  const detectedEventId = extractEventId(text);
+  const detectedIncidentType = extractIncidentType(text);
+  const detectedAddress = extractAddress(rawText);
+  const inferredDate = extractDateFromEventId(detectedEventId);
+
+  const codeField = document.getElementById("detected-brigade-code");
+  const callTypeField = document.getElementById("call-type");
+  const eventIdField = document.getElementById("event-id");
+  const typeField = document.getElementById("incident-type");
+  const addressField = document.getElementById("incident-address");
+  const pagerDateField = document.getElementById("pager-date");
+
+  if (codeField) {
+    codeField.value = detectedCode;
+  }
+
+  if (callTypeField) {
+    callTypeField.value = detectedCallType;
+  }
+
+  if (eventIdField && detectedEventId) {
+    eventIdField.value = detectedEventId;
+  }
+
+  if (typeField && detectedIncidentType && !typeField.value.trim()) {
+    typeField.value = detectedIncidentType;
+  }
+
+  if (addressField && detectedAddress && !addressField.value.trim()) {
+    addressField.value = detectedAddress;
+  }
+
+  if (pagerDateField && inferredDate && !pagerDateField.value) {
+    pagerDateField.value = inferredDate;
+  }
+
+  updateEventIdPlaceholder();
+  applyCallTypeUI();
+
+  const summaryParts = [];
+  if (detectedCode) summaryParts.push(`Code: ${detectedCode}`);
+  if (detectedCallType) summaryParts.push(`Call Type: ${detectedCallType}`);
+  if (detectedEventId) summaryParts.push(`Event ID: ${detectedEventId}`);
+  if (detectedAddress) summaryParts.push(`Address filled`);
+
+  setSASStatus(summaryParts.length ? `OCR complete. ${summaryParts.join(" | ")}` : "OCR complete, but little usable text was found.");
+}
+
 /* Validation helpers */
 function getCurrentOIC() {
   const connOIC = selectedConnewarreMembers.find(member => member.isOIC);
@@ -422,7 +669,17 @@ function formatGroupedApplianceSection() {
     const sortedMembers = sortCrewByTask(mergedGroups[groupName]);
     sortedMembers.forEach(member => {
       const label = member.task || "Crew";
-      lines.push(`${label} – ${member.name || "Unnamed Member"}`);
+      let detail = `${label} – ${member.name || "Unnamed Member"}`;
+
+      if (member.baUsed) {
+        detail += " – BA Used";
+      }
+
+      if (member.injured) {
+        detail += " – Injured";
+      }
+
+      lines.push(detail);
     });
 
     lines.push("");
@@ -445,12 +702,22 @@ function formatStationAndDirectSection() {
       ? `${member.name || "Unnamed Member"} (${member.brigade})`
       : `${member.name || "Unnamed Member"}`;
 
+    let line = displayName;
+
+    if (member.baUsed) {
+      line += " – BA Used";
+    }
+
+    if (member.injured) {
+      line += " – Injured";
+    }
+
     if (member.attribution === "Station") {
-      stationLines.push(displayName);
+      stationLines.push(line);
     }
 
     if (member.attribution === "Direct") {
-      directLines.push(displayName);
+      directLines.push(line);
     }
   });
 
@@ -474,19 +741,27 @@ function buildReportText() {
   const firsCode = getFirsCode();
   const address = getAddress();
   const incidentType = getIncidentType();
+  const callType = getFinalCallType();
   const oic = getCurrentOIC();
   const profile = getStoredProfile();
 
   const applianceLines = formatGroupedApplianceSection();
   const stationDirectLines = formatStationAndDirectSection();
 
-  return [
+  const baseLines = [
     `EVENT ID: ${eventId || "Not entered"}`,
     `PAGER DATE: ${pagerDate || "Not entered"}`,
     `PAGER TIME: ${pagerTime || "Not entered"}`,
-    `FIRS CODE: ${firsCode || "Not entered"}`,
     `TYPE: ${incidentType || "Not entered"}`,
-    `ADDRESS: ${address || "Not entered"}`,
+    `CALL TYPE: ${callType || "Not entered"}`,
+    `ADDRESS: ${address || "Not entered"}`
+  ];
+
+  if (callType !== "Support") {
+    baseLines.push(`FIRS CODE: ${firsCode || "Not entered"}`);
+  }
+
+  baseLines.push(
     ``,
     `OIC: ${oic ? oic.name : "Not assigned"}`,
     `PHONE: ${oic ? (oic.phone || "______") : "______"}`,
@@ -498,7 +773,9 @@ function buildReportText() {
     `CFA MEMBER NUMBER: ${profile?.number || "Not saved"}`,
     `AUTHOR BRIGADE: ${profile?.brigade || "Not saved"}`,
     `AUTHOR ROLE: ${profile?.role || "Not saved"}`
-  ].join("\n");
+  );
+
+  return baseLines.join("\n");
 }
 
 function generateReport() {
@@ -805,7 +1082,9 @@ function addConnewarreMember(member) {
     attribution: "",
     appliance: "",
     task: "",
-    isOIC: false
+    isOIC: false,
+    baUsed: false,
+    injured: false
   });
 
   const searchField = document.getElementById("conn-search");
@@ -857,6 +1136,11 @@ function renderConnewarreMembers() {
         </select>
       ` : ""}
 
+      ${member.attribution === "Appliance" && member.appliance === "Other" ? `
+        <label>Other Appliance</label>
+        <input type="text" value="${member.otherAppliance || ""}" onchange="updateConnMember(${index}, 'otherAppliance', this.value)">
+      ` : ""}
+
       <label>Crew Task</label>
       <select onchange="updateConnMember(${index}, 'task', this.value)">
         <option value="">Select</option>
@@ -864,6 +1148,16 @@ function renderConnewarreMembers() {
         <option value="Crew Leader" ${member.task === "Crew Leader" ? "selected" : ""}>Crew Leader</option>
         <option value="Crew" ${member.task === "Crew" ? "selected" : ""}>Crew</option>
       </select>
+
+      <label>
+        <input type="checkbox" ${member.baUsed ? "checked" : ""} onchange="updateConnMember(${index}, 'baUsed', this.checked)">
+        BA Used
+      </label>
+
+      <label>
+        <input type="checkbox" ${member.injured ? "checked" : ""} onchange="updateConnMember(${index}, 'injured', this.checked)">
+        Injured
+      </label>
 
       <label>
         <input type="checkbox" ${member.isOIC ? "checked" : ""} onchange="setConnewarreOIC(${index}, this.checked)">
@@ -1003,7 +1297,9 @@ function addMTDMember(member, selectedBrigade) {
     appliance: "",
     otherAppliance: "",
     task: "",
-    isOIC: false
+    isOIC: false,
+    baUsed: false,
+    injured: false
   });
 
   const searchField = document.getElementById("mtd-search");
@@ -1047,7 +1343,9 @@ function addOtherMTDMember() {
     otherAppliance: "",
     task: "",
     isOIC: false,
-    manualEntry: true
+    manualEntry: true,
+    baUsed: false,
+    injured: false
   });
 
   renderMTDMembers();
@@ -1115,6 +1413,16 @@ function renderMTDMembers() {
         <option value="Crew Leader" ${member.task === "Crew Leader" ? "selected" : ""}>Crew Leader</option>
         <option value="Crew" ${member.task === "Crew" ? "selected" : ""}>Crew</option>
       </select>
+
+      <label>
+        <input type="checkbox" ${member.baUsed ? "checked" : ""} onchange="updateMTDMember(${index}, 'baUsed', this.checked)">
+        BA Used
+      </label>
+
+      <label>
+        <input type="checkbox" ${member.injured ? "checked" : ""} onchange="updateMTDMember(${index}, 'injured', this.checked)">
+        Injured
+      </label>
 
       <label>
         <input type="checkbox" ${member.isOIC ? "checked" : ""} onchange="setMTDOIC(${index}, this.checked)">
